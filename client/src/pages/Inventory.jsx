@@ -94,11 +94,11 @@ export default function Inventory() {
   };
 
   const exportToCsv = () => {
-    const headers = ['Name', 'Weight', 'Shape', 'Color', 'Clarity', 'Cut', 'Polish', 'Symmetry', 'UV', 'Status', 'Price'];
+    const headers = ['Diamond #', 'Weight', 'Shape', 'Color', 'Clarity', 'Cut', 'Polish', 'Symmetry', 'UV', 'Status', 'Price'];
     const csvContent = "data:text/csv;charset=utf-8," + 
       headers.join(',') + "\n" +
       diamonds.map(d => 
-        `${d.name || ''},${d.carat || ''},${d.shape || ''},${d.color || ''},${d.clarity || ''},` +
+        `${d.diamondNumber || ''},${d.carat || ''},${d.shape || ''},${d.color || ''},${d.clarity || ''},` +
         `${d.cut || ''},${d.polish || ''},${d.symmetry || ''},${d.uv || ''},${d.status || ''},${d.price || ''}`
       ).join("\n");
 
@@ -114,7 +114,7 @@ export default function Inventory() {
   const filteredDiamonds = diamonds.filter(diamond => {
     const matchesSearch = 
       searchQuery === "" || 
-      (diamond.name && diamond.name.toLowerCase().includes(searchQuery.toLowerCase()));
+       (diamond.diamondNumber && String(diamond.diamondNumber).includes(searchQuery))
     
     const matchesStatus = 
       filterStatus === "all" || 
@@ -206,7 +206,7 @@ export default function Inventory() {
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                      <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Diamond #</th>
                       <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Weight (carats)</th>
                       <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Shape</th>
                       <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Color</th>
@@ -229,7 +229,9 @@ export default function Inventory() {
                               <DiamondIcon className="h-4 w-4 text-sky-500" />
                             </div>
                             <div className="ml-3 text-sm font-medium text-gray-900">
-                              {diamond.name || `Diamond ${diamond.id.substring(0, 4)}`}
+                              {diamond.diamondNumber 
+                                ? `#${String(diamond.diamondNumber).padStart(3, '0')}` 
+                                : `${diamond.id.substring(0, 3)}`}
                             </div>
                           </div>
                         </td>

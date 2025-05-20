@@ -6,12 +6,17 @@ const DiamondSchema = new mongoose.Schema({
   color: String,
   clarity: String,
   price: Number,
-  name: String,
+  //name: String,
   cut: String,
   polish: String,
   symmetry: String,
   uv: String,
-  status: String
+  status: String,
+  diamondNumber: {
+    type: Number,
+    required: true,
+    unique: true
+  }
 });
 
 const Diamond = mongoose.model('Diamond', DiamondSchema);

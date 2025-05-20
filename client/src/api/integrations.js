@@ -1,3 +1,5 @@
+// Currently unused – remove if not needed in future
+
 export const Core = {
     InvokeLLM: async (payload) => {
       const response = await fetch('/api/invoke-llm', {

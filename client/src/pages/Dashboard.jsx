@@ -99,7 +99,9 @@ export default function Dashboard() {
                   <div className="flex items-center gap-4">
                     <DiamondIcon className="h-8 w-8 text-sky-500" />
                     <div>
-                      <p className="font-medium">{diamond.name || `Diamond #${diamond.id.substring(0, 4)}`}</p>
+                      <p className="font-medium">{diamond.diamondNumber 
+                                ? `#${String(diamond.diamondNumber).padStart(3, '0')}` 
+                                : `${diamond.id.substring(0, 3)}`}</p>
                       <p className="text-sm text-gray-500">{diamond.carat} ct • {diamond.clarity}</p>
                     </div>
                   </div>
@@ -121,7 +123,7 @@ export default function Dashboard() {
                   <div className="flex items-center gap-4">
                     <FileText className="h-8 w-8 text-purple-500" />
                     <div>
-                      <p className="font-medium">Contract #{contract.contract_number}</p>
+                      <p className="font-medium">Contract #{String(contract.contractNumber).padStart(3, '0')}</p>
                       <p className="text-sm text-gray-500">{contract.type} • ${contract.price?.toLocaleString()}</p>
                     </div>
                   </div>

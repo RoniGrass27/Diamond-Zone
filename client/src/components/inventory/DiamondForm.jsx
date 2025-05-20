@@ -21,7 +21,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function DiamondForm({ diamond, onSubmit, onCancel }) {
   const [formData, setFormData] = useState({
-    name: diamond?.name || '',
     carat: diamond?.carat || '',
     shape: diamond?.shape || '',
     color: diamond?.color || '',
@@ -75,16 +74,6 @@ export default function DiamondForm({ diamond, onSubmit, onCancel }) {
 
             <TabsContent value="basic" className="space-y-4">
               <div className="grid grid-cols-1 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Diamond Name</Label>
-                  <Input
-                    id="name"
-                    value={formData.name}
-                    onChange={(e) => handleChange('name', e.target.value)}
-                    placeholder="Enter a name or identifier"
-                  />
-                </div>
-  
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="carat">Weight (Carats)</Label>

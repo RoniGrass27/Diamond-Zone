@@ -13,8 +13,9 @@ import {
 } from "@/components/ui/dialog";
 
 export default function ContractForm({ onSubmit, onCancel, diamonds }) {
+  const [emailError, setEmailError] = useState('');
   const [formData, setFormData] = useState({
-    type: 'Borrow',
+    type: 'MemoTo',
     diamond_id: '',
     buyer_email: '',
     seller_email: '',
@@ -31,10 +32,26 @@ export default function ContractForm({ onSubmit, onCancel, diamonds }) {
     } else {
       setFormData(prev => ({ ...prev, [field]: value }));
     }
+
+    if (field === 'buyer_email' || field === 'seller_email') {
+      setEmailError('');
+    }
   };
+
+  function isValidEmail(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  }
 
   const handleSubmit = (e) => {
     e.preventDefault();
+
+    if ((formData.buyer_email && !isValidEmail(formData.buyer_email)) ||
+          (formData.seller_email && !isValidEmail(formData.seller_email))) {
+      setEmailError('Invalid email address');
+      return;
+    }
+
+    setEmailError('');
     
     // Create a clean version of the data for submission
     const submitData = {
@@ -44,13 +61,14 @@ export default function ContractForm({ onSubmit, onCancel, diamonds }) {
         ? formData.price 
         : null,
       // Only include relevant email based on contract type
-      buyer_email: formData.type === 'Buy' || formData.type === 'Lend' 
+      buyer_email: formData.type === 'Buy' || formData.type === 'MemoFrom' 
         ? formData.buyer_email 
         : null,
-      seller_email: formData.type === 'Sell' || formData.type === 'Borrow'
+      seller_email: formData.type === 'Sell' || formData.type === 'MemoTo'
         ? formData.seller_email 
         : null
     };
+
     console.log("Submitting contract with data:", submitData);
     onSubmit(submitData);
   };
@@ -75,12 +93,12 @@ export default function ContractForm({ onSubmit, onCancel, diamonds }) {
                 className="flex space-x-4 mt-2"
               >
                 <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="Borrow" id="borrow" />
-                  <Label htmlFor="borrow">Borrow</Label>
+                  <RadioGroupItem value="MemoTo" id="memoTo" />
+                  <Label htmlFor="memoTo">Memo to</Label>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="Lend" id="lend" />
-                  <Label htmlFor="lend">Lend</Label>
+                  <RadioGroupItem value="MemoFrom" id="memoFrom" />
+                  <Label htmlFor="memoFrom">Memo from</Label>
                 </div>
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="Buy" id="buy" />
@@ -104,8 +122,8 @@ export default function ContractForm({ onSubmit, onCancel, diamonds }) {
                 </SelectTrigger>
                 <SelectContent>
                   {diamonds.map(diamond => (
-                    <SelectItem key={diamond._id} value={diamond._id}>
-                      {diamond.name || `Diamond #${diamond._id.slice(0, 4)}`} - {diamond.carat}ct
+                    <SelectItem key={diamond.id} value={diamond.id}>
+                      {`#${String(diamond.diamondNumber).padStart(3, '0')}` || `Diamond #${diamond.id.slice(0, 4)}`} - {diamond.carat}ct
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -114,27 +132,31 @@ export default function ContractForm({ onSubmit, onCancel, diamonds }) {
 
             <div>
               <Label htmlFor="counterparty">
-                {formData.type === 'Buy' || formData.type === 'Borrow' 
-                  ? "Seller/Lender Email" 
-                  : "Buyer/Borrower Email"}
+                {formData.type === 'Buy' || formData.type === 'MemoTo' 
+                  ? "From (Email)" 
+                  : "To (Email)"}
               </Label>
               <Input
                 id="counterparty"
                 type="email"
                 required
                 value={
-                  formData.type === 'Buy' || formData.type === 'Borrow'
+                  formData.type === 'Buy' || formData.type === 'MemoFrom'
                     ? formData.seller_email
                     : formData.buyer_email
                 }
                 onChange={(e) => {
-                  const field = (formData.type === 'Buy' || formData.type === 'Borrow')
+                  const field = (formData.type === 'Buy' || formData.type === 'MemoFrom')
                     ? 'seller_email'
                     : 'buyer_email';
                   handleChange(field, e.target.value);
                 }}
                 placeholder="Enter email address"
+                className={emailError ? 'border-red-500' : ''}
               />
+              {emailError && (
+                <p className="text-sm text-red-500 mt-1">{emailError}</p>
+              )}
             </div>
 
             {(formData.type === 'Buy' || formData.type === 'Sell') && (

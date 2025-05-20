@@ -41,9 +41,14 @@ export default function ContractsPage() {
   const handleCreateContract = async (contractData) => {
     try {
       await Contract.create({
-        ...contractData,
-        contract_number: `CNT${Math.random().toString(16).slice(2, 8).toUpperCase()}`,
-        status: "Pending"
+        type: contractData.type,
+        diamondId: contractData.diamond_id,
+        buyerEmail: contractData.buyer_email,
+        sellerEmail: contractData.seller_email,
+        price: contractData.price,
+        expirationDate: contractData.expiration_date,
+        status: "pending",
+        createdDate: new Date()
       });
       await loadData();
       setShowCreateDialog(false);
@@ -101,7 +106,8 @@ export default function ContractsPage() {
                   <th className="text-left py-3 px-4">Contract #</th>
                   <th className="text-left py-3 px-4">Type</th>
                   <th className="text-left py-3 px-4">Diamond</th>
-                  <th className="text-left py-3 px-4">Created</th>
+                  <th className="text-left py-3 px-4">Created At</th>
+                  <th className="text-left py-3 px-4">Expiration Date</th>
                   <th className="text-left py-3 px-4">Status</th>
                   <th className="text-right py-3 px-4">Actions</th>
                 </tr>
@@ -120,16 +126,31 @@ export default function ContractsPage() {
                   </tr>
                 ) : (
                   filteredContracts.map(contract => {
-                    const diamond = diamonds.find(d => d.id === contract.diamond_id);
+                    const diamond = diamonds.find(d => String(d.id) === String(contract.diamondId?._id));
                     return (
                       <tr key={contract.id} className="border-b">
-                        <td className="py-3 px-4 font-medium">{contract.contract_number}</td>
+                        <td className="py-3 px-4 font-medium">#{String(contract.contractNumber).padStart(3, '0')}</td>
                         <td className="py-3 px-4">{contract.type}</td>
                         <td className="py-3 px-4">
-                          {diamond ? diamond.name || `Diamond #${diamond.id.slice(0, 4)}` : 'N/A'}
+                          {diamond && diamond.diamondNumber
+                            ? `#${String(diamond.diamondNumber).padStart(3, '0')}`
+                            : 'N/A'}
                         </td>
                         <td className="py-3 px-4">
-                          {format(new Date(contract.created_date), 'MMM d, yyyy')}
+                          {contract.createdDate ? format(new Date(contract.createdDate), 'MMM d, yyyy') : '—'}
+                        </td>
+                         <td className="py-3 px-4">
+                          {contract.expirationDate ? (
+                            <span
+                              className={
+                                new Date(contract.expirationDate) < new Date(new Date().setDate(new Date().getDate() + 5))
+                                  ? "text-red-600 font-semibold"
+                                  : ""
+                              }
+                            >
+                              {format(new Date(contract.expirationDate), 'MMM d, yyyy')}
+                            </span>
+                          ) : '—'}
                         </td>
                         <td className="py-3 px-4">
                           <Badge 

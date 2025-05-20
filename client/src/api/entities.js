@@ -2,7 +2,11 @@ export const Diamond = {
     list: async () => {
       const response = await fetch('/api/diamonds');
       if (!response.ok) throw new Error("Failed to fetch diamonds");
-      return response.json();
+      const data = await response.json();
+      return data.map(d => ({
+        ...d,
+        id: d._id 
+      }));
     },
     create: async (data) => {
       const response = await fetch('/api/diamonds', {
@@ -34,7 +38,11 @@ export const Diamond = {
     list: async () => {
       const response = await fetch('/api/contracts');
       if (!response.ok) throw new Error("Failed to fetch contracts");
-      return response.json();
+      const data = await response.json();
+      return data.map(c => ({
+        ...c,
+        id: c._id
+      }));
     },
     create: async (data) => {
       const response = await fetch('/api/contracts', {
