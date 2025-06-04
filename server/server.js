@@ -23,7 +23,7 @@ let currentUser = {
   id: 1, 
   name: 'Roni', 
   email: 'roni@example.com', 
-  full_name: 'Roni Grass'
+  full_name: 'Roni G'
 };
 
 // Simple in-memory wallet storage (for development)
@@ -73,10 +73,6 @@ app.post('/api/users/enable-blockchain', async (req, res) => {
   }
 });
 
-// Keep all your existing routes (diamonds, contracts, auth) exactly as they are
-// ... (copy all your existing routes here)
-
-// Your existing diamond routes
 async function getNextDiamondNumber() {
   const counter = await Counter.findByIdAndUpdate(
     { _id: 'diamond' },
@@ -101,6 +97,25 @@ app.post('/api/diamonds', async (req, res) => {
     });
 
     await diamond.save();
+
+    // Now mint NFT on the blockchain
+    const ContractService = require('./blockchain/ContractService');
+    const contractService = new ContractService();
+    const web3 = contractService.web3;
+
+    const nftContract = await contractService.getNFTContract();
+    const userAddress = userWallets.get(currentUser.id.toString())?.address;
+
+    if (!userAddress) {
+      return res.status(400).json({ error: 'User wallet not found' });
+    }
+
+    await nftContract.methods
+      .mint(userAddress, diamond.diamondNumber)
+      .send({ from: userAddress });
+
+    console.log(`Minted diamond #${diamond.diamondNumber} for ${userAddress}`);
+    
     res.status(201).json(diamond);
   } catch (error) {
     console.error("Error creating diamond:", error.message);

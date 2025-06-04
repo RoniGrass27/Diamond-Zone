@@ -1,5 +1,5 @@
 // blockchain/WalletService.js
-const Web3 = require('web3');
+const Web3 = require('web3').default;
 const { HDWalletProvider } = require('@truffle/hdwallet-provider');
 const crypto = require('crypto');
 const config = require('./config');

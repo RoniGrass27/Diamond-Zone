@@ -5,7 +5,7 @@ require('dotenv').config({ path: path.join(__dirname, '../server/.env') }); // L
 const config = {
   // Quorum/Ethereum network configuration
   quorum: {
-    rpcUrl: process.env.QUORUM_RPC_URL || 'http://localhost:8545',
+    rpcUrl: process.env.QUORUM_RPC_URL || 'http://localhost:7545',
     networkId: process.env.QUORUM_NETWORK_ID || '10',
     gasLimit: process.env.GAS_LIMIT || '4712388',
     gasPrice: process.env.GAS_PRICE || '0'

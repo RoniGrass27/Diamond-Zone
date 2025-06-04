@@ -4,24 +4,27 @@ module.exports = {
       host: "127.0.0.1",     // Localhost (default: none)
       port: 7545,            // Standard Ethereum port (default: none)
       network_id: "*",       // Any network (default: none)
+      gas: 6721975,          // Gas limit
+      gasPrice: 20000000000, // 20 gwei (in wei)
     },
   },
 
   // Set default mocha options here, use special reporters, etc.
   mocha: {
-    // timeout: 100000
+    timeout: 100000
   },
 
   // Configure your compilers
   compilers: {
     solc: {
-      version: "0.8.20",      // Fetch exact version from solc-bin
-      settings: {             // See the solidity docs for advice about optimization and evmVersion
+      version: "0.8.20",      // Use a more stable version
+      settings: {             
         optimizer: {
           enabled: true,
           runs: 200
         },
-        viaIR: true           // This fixes the "Stack too deep" error
+        evmVersion: "london",   // Use London EVM version for better compatibility
+        viaIR: true            // Try without viaIR first
       }
     }
   }

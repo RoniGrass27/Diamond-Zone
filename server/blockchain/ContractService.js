@@ -1,10 +1,10 @@
 // blockchain/ContractService.js
-const Web3 = require('web3');
+const Web3 = require('web3').default;
 const config = require('./config');
 
 // Import contract ABIs (these will be generated after compiling contracts)
 const DiamondLendingABI = require('./abis/DiamondLending.json');
-const DiamondNFTABI = require('./abis/DiamondNFT.json');
+const DiamondNFTABI = require('./abis/DiamondLending.json');
 
 class ContractService {
   constructor(walletService) {

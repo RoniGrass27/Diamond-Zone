@@ -1,7 +1,7 @@
 // server/blockchain-routes.js
 const express = require('express');
-const WalletService = require('../blockchain/WalletService');
-const ContractService = require('../blockchain/ContractService');
+const WalletService = require('./blockchain/WalletService.js');
+const ContractService = require('./blockchain/ContractService.js');
 
 const router = express.Router();
 

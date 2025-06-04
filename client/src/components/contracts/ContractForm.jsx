@@ -18,6 +18,22 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, Wallet, Link, AlertCircle, CheckCircle } from "lucide-react";
 
+
+//for testing purposes
+// const connectWallet = async () => {
+//   if (window.ethereum) {
+//     try {
+//       const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+//       console.log("MetaMask connected:", accounts[0]);
+//       alert("MetaMask connected: " + accounts[0]);
+//     } catch (err) {
+//       console.error("MetaMask connection error:", err);
+//     }
+//   } else {
+//     alert("MetaMask is not installed.");
+//   }
+// };
+
 // Import BlockchainService (you'll need to create this)
 // For now, we'll create a simple mock
 const BlockchainService = {
@@ -38,7 +54,7 @@ const BlockchainService = {
 export default function ContractForm({ onSubmit, onCancel, diamonds }) {
   const [emailError, setEmailError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [useBlockchain, setUseBlockchain] = useState(false);
+  //const [useBlockchain, setUseBlockchain] = useState(false);
   const [walletInfo, setWalletInfo] = useState(null);
   const [walletLoading, setWalletLoading] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
@@ -59,6 +75,7 @@ export default function ContractForm({ onSubmit, onCancel, diamonds }) {
   // Load current user and wallet info on component mount
   useEffect(() => {
     loadCurrentUser();
+    autoConnectWallet();
   }, []);
 
   const loadCurrentUser = async () => {
@@ -76,6 +93,23 @@ export default function ContractForm({ onSubmit, onCancel, diamonds }) {
     } catch (error) {
       console.error('Error loading current user:', error);
     }
+  };
+
+  const autoConnectWallet = async () => {
+  if (window.ethereum) {
+    try {
+      const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+      if (accounts.length > 0) {
+        setWalletInfo({
+          address: accounts[0],
+          createdAt: new Date()
+        });
+        console.log("MetaMask auto-connected:", accounts[0]);
+      }
+    } catch (err) {
+      console.warn("MetaMask connection skipped or rejected.");
+    }
+   }
   };
 
   const createWallet = async () => {
@@ -118,10 +152,10 @@ export default function ContractForm({ onSubmit, onCancel, diamonds }) {
     }
   };
 
-  const handleBlockchainToggle = (enabled) => {
-    setUseBlockchain(enabled);
-    setFormData(prev => ({ ...prev, blockchain_enabled: enabled }));
-  };
+  // const handleBlockchainToggle = (enabled) => {
+  //   setUseBlockchain(enabled);
+  //   setFormData(prev => ({ ...prev, blockchain_enabled: enabled }));
+  // };
 
   function isValidEmail(email) {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -133,40 +167,75 @@ export default function ContractForm({ onSubmit, onCancel, diamonds }) {
 
     try {
       // Validate emails
-      if ((formData.buyer_email && !isValidEmail(formData.buyer_email)) ||
-          (formData.seller_email && !isValidEmail(formData.seller_email))) {
+      if (
+        (formData.buyer_email && !isValidEmail(formData.buyer_email)) ||
+        (formData.seller_email && !isValidEmail(formData.seller_email))
+      ) {
         setEmailError('Invalid email address');
         return;
       }
 
       setEmailError('');
 
-      // Check if blockchain is enabled but wallet doesn't exist
-      if (useBlockchain && !walletInfo) {
-        alert('Please create a wallet first to use blockchain features');
-        return;
+      const isLendingContract = formData.type === 'MemoTo';
+
+      if (isLendingContract) {
+        const Web3 = (await import("web3")).default;
+        const DiamondLendingJSON = await import("../../abis/DiamondLending.json");
+        const DiamondLendingAddress = "0xB4faE67601084B25244d3bb103c1459Fdc99B5Ff";
+
+        const web3 = new Web3(window.ethereum);
+        const accounts = await web3.eth.getAccounts();
+
+        const lendingContract = new web3.eth.Contract(
+          DiamondLendingJSON.abi,
+          DiamondLendingAddress
+        );
+
+        const selectedDiamond = diamonds.find(d => d.id === formData.diamond_id);
+        console.log("selectedDiamond:", selectedDiamond);
+        const diamondId = selectedDiamond?.diamondNumber;
+        console.log("diamondId (uint256):", diamondId);
+
+        if (!diamondId) {
+          alert("Selected diamond is missing a valid diamondNumber.");
+          setLoading(false);
+          return;
+        }
+
+        const borrower = walletInfo.address;
+        const duration = Number(formData.duration);
+        const terms = formData.terms;
+        const qrCodeHash = web3.utils.keccak256("example");
+
+        await lendingContract.methods
+          .createLoanRequest(diamondId, borrower, duration, terms, qrCodeHash)
+          .send({ from: accounts[0] });
+
+        console.log("Memo request sent to blockchain");
       }
 
-      // Prepare contract data (same as your original logic)
       const contractData = {
         ...formData,
         price: (formData.type === 'Buy' || formData.type === 'Sell') ? formData.price : null,
         buyer_email: formData.type === 'Buy' || formData.type === 'MemoFrom' ? formData.buyer_email : null,
         seller_email: formData.type === 'Sell' || formData.type === 'MemoTo' ? formData.seller_email : null,
-        blockchain_enabled: useBlockchain,
+        blockchain_enabled: true,
         wallet_address: walletInfo?.address
       };
 
-      console.log("Submitting contract with data:", contractData);
-
-      // Submit to your existing API
+      console.log("Sending contract to backend:", contractData);
       await onSubmit(contractData);
 
-      // Future: Add blockchain operations here when ready
-
+      setOpen(false);
+      toast.success("Contract created successfully");
     } catch (error) {
-      console.error('Error submitting contract:', error);
-      alert('Failed to create contract. Please try again.');
+      console.error("Error submitting contract:", error);
+      if (error.code === 4001) {
+        alert("MetaMask: action canceled by user.");
+      } else {
+        alert("Failed to create contract. Please try again.");
+      }
     } finally {
       setLoading(false);
     }
@@ -328,75 +397,6 @@ export default function ContractForm({ onSubmit, onCancel, diamonds }) {
             </div>
           </div>
 
-          {/* NEW: Blockchain Integration Section */}
-          {isLendingContract && (
-            <Card className="border-sky-200">
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <Link className="h-4 w-4" />
-                    Blockchain Integration
-                  </CardTitle>
-                  <Switch
-                    checked={useBlockchain}
-                    onCheckedChange={handleBlockchainToggle}
-                    disabled={!walletInfo}
-                  />
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {/* Wallet Status */}
-                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <Wallet className="h-4 w-4" />
-                    <span className="text-sm font-medium">Wallet Status:</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {walletLoading ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : walletInfo ? (
-                      <>
-                        <CheckCircle className="h-4 w-4 text-green-500" />
-                        <span className="text-sm text-green-600">Connected</span>
-                        <Badge variant="outline" className="text-xs">
-                          {BlockchainService.formatAddress(walletInfo.address)}
-                        </Badge>
-                      </>
-                    ) : (
-                      <>
-                        <AlertCircle className="h-4 w-4 text-amber-500" />
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={createWallet}
-                          disabled={walletLoading}
-                        >
-                          {walletLoading ? (
-                            <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                          ) : null}
-                          Create Wallet
-                        </Button>
-                      </>
-                    )}
-                  </div>
-                </div>
-
-                {/* Blockchain Benefits */}
-                {useBlockchain && walletInfo && (
-                  <Alert>
-                    <CheckCircle className="h-4 w-4" />
-                    <AlertDescription>
-                      This contract will be secured on the blockchain with smart contract automation, 
-                      QR code verification, and transparent transaction history.
-                    </AlertDescription>
-                  </Alert>
-                )}
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Action Buttons - Same as your original */}
           <div className="flex justify-end space-x-3">
             <Button type="button" variant="outline" onClick={onCancel}>
               Cancel
@@ -407,8 +407,7 @@ export default function ContractForm({ onSubmit, onCancel, diamonds }) {
               disabled={
                 loading || 
                 !formData.diamond_id || 
-                (!formData.buyer_email && !formData.seller_email) ||
-                (useBlockchain && !walletInfo)
+                (!formData.buyer_email && !formData.seller_email) 
               }
             >
               {loading ? (
@@ -419,7 +418,7 @@ export default function ContractForm({ onSubmit, onCancel, diamonds }) {
               ) : (
                 <>
                   Create Contract
-                  {useBlockchain && <Link className="ml-2 h-4 w-4" />}
+                  {/* {/* {useBlockchain && Link className="ml-2 h-4 w-4" />} } */}
                 </>
               )}
             </Button>
