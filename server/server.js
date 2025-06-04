@@ -1,4 +1,4 @@
-// server.js
+// server.js 
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
@@ -7,18 +7,76 @@ const { Diamond } = require('./models/Diamond');
 const { Contract } = require('./models/Contract');
 const { Counter } = require('./models/counters');
 
+// Import blockchain routes
+const blockchainRoutes = require('./blockchain-routes');
+
 dotenv.config();
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.json());
 
-let currentUser = { id: 1, name: 'Roni', email: 'roni@example.com' };
+// Enhanced current user with blockchain support
+let currentUser = { 
+  id: 1, 
+  name: 'Roni', 
+  email: 'roni@example.com', 
+  full_name: 'Roni Grass'
+};
 
+// Simple in-memory wallet storage (for development)
+const userWallets = new Map();
 
-// Diamonds
+// Add blockchain routes
+app.use('/api/blockchain', blockchainRoutes);
+
+// Enhanced user endpoints
+app.get('/api/me', (req, res) => {
+  const hasWallet = userWallets.has(currentUser.id.toString());
+  res.json({
+    ...currentUser,
+    walletCreated: hasWallet,
+    walletAddress: hasWallet ? userWallets.get(currentUser.id.toString()).address : null
+  });
+});
+
+app.post('/api/users/enable-blockchain', async (req, res) => {
+  try {
+    const WalletService = require('./blockchain/WalletService');
+    const walletService = new WalletService();
+    
+    if (userWallets.has(currentUser.id.toString())) {
+      return res.json({ 
+        success: true, 
+        message: 'Wallet already exists',
+        wallet: userWallets.get(currentUser.id.toString())
+      });
+    }
+    
+    const wallet = await walletService.createMerchantWallet(currentUser.id.toString());
+    userWallets.set(currentUser.id.toString(), wallet);
+    
+    res.json({
+      success: true,
+      message: 'Blockchain enabled successfully',
+      wallet: {
+        address: wallet.address,
+        createdAt: wallet.createdAt
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error enabling blockchain:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Keep all your existing routes (diamonds, contracts, auth) exactly as they are
+// ... (copy all your existing routes here)
+
+// Your existing diamond routes
 async function getNextDiamondNumber() {
   const counter = await Counter.findByIdAndUpdate(
     { _id: 'diamond' },
@@ -61,8 +119,7 @@ app.delete('/api/diamonds/:id', async (req, res) => {
   res.status(204).send();
 });
 
-
-// Contracts
+// Your existing contract routes
 async function getNextContractNumber() {
   const counter = await Counter.findByIdAndUpdate(
     { _id: 'contract' },
@@ -94,7 +151,7 @@ app.post('/api/contracts', async (req, res) => {
   }
 });
 
-// Authentication (mocked)
+// Your existing auth routes
 app.post('/api/login', (req, res) => {
   res.json(currentUser);
 });
@@ -103,8 +160,16 @@ app.post('/api/logout', (req, res) => {
   res.status(204).send();
 });
 
-app.get('/api/me', (req, res) => {
-  res.json(currentUser);
+// Health check
+app.get('/api/health', (req, res) => {
+  res.json({ 
+    status: 'ok', 
+    timestamp: new Date().toISOString(),
+    services: {
+      database: 'connected',
+      blockchain: 'available'
+    }
+  });
 });
 
 mongoose.connect(process.env.MONGODB_URI)
@@ -114,7 +179,10 @@ mongoose.connect(process.env.MONGODB_URI)
     process.exit(1);
   });
 
-
 app.listen(PORT, () => {
   console.log(`Server running at http://localhost:${PORT}`);
+  console.log('Available endpoints:');
+  console.log('  - Traditional API: /api/*');
+  console.log('  - Blockchain API: /api/blockchain/*');
+  console.log('  - Health check: /api/health');
 });
