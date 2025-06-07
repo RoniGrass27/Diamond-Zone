@@ -32,11 +32,11 @@ async function testConnection() {
       console.log('Balance:', web3.utils.fromWei(balance, 'ether'), 'ETH');
     }
     
-    console.log('\n✅ Connection successful!');
+    console.log('\nConnection successful!');
     return true;
     
   } catch (error) {
-    console.error('❌ Connection failed:', error.message);
+    console.error('Connection failed:', error.message);
     return false;
   }
 }

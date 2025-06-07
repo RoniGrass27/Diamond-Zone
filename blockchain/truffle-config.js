@@ -9,7 +9,6 @@ module.exports = {
     },
   },
 
-  // Set default mocha options here, use special reporters, etc.
   mocha: {
     timeout: 100000
   },
@@ -17,14 +16,14 @@ module.exports = {
   // Configure your compilers
   compilers: {
     solc: {
-      version: "0.8.20",      // Use a more stable version
+      version: "0.8.20",  
       settings: {             
         optimizer: {
           enabled: true,
           runs: 200
         },
-        evmVersion: "london",   // Use London EVM version for better compatibility
-        viaIR: true            // Try without viaIR first
+        evmVersion: "london",  
+        viaIR: true           
       }
     }
   }

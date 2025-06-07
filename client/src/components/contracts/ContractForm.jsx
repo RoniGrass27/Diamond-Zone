@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, Wallet, Link, AlertCircle, CheckCircle } from "lucide-react";
+import { toast } from "react-toastify";
 
 
 //for testing purposes
@@ -34,7 +35,7 @@ import { Loader2, Wallet, Link, AlertCircle, CheckCircle } from "lucide-react";
 //   }
 // };
 
-// Import BlockchainService (you'll need to create this)
+// Import BlockchainService (we'll need to create this)
 // For now, we'll create a simple mock
 const BlockchainService = {
   getWallet: async (userId) => {
@@ -203,6 +204,16 @@ export default function ContractForm({ onSubmit, onCancel, diamonds }) {
           return;
         }
 
+       if (!walletInfo?.address) {
+        await autoConnectWallet(); 
+
+        if (!walletInfo?.address) {
+          alert("Please connect MetaMask before creating a contract.");
+          setLoading(false);
+          return;
+        }
+      }
+
         const borrower = walletInfo.address;
         const duration = Number(formData.duration);
         const terms = formData.terms;
@@ -227,7 +238,7 @@ export default function ContractForm({ onSubmit, onCancel, diamonds }) {
       console.log("Sending contract to backend:", contractData);
       await onSubmit(contractData);
 
-      setOpen(false);
+      //setOpen(false);
       toast.success("Contract created successfully");
     } catch (error) {
       console.error("Error submitting contract:", error);
@@ -258,7 +269,7 @@ export default function ContractForm({ onSubmit, onCancel, diamonds }) {
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Contract Type - Same as your original */}
+          {/* Contract Type */}
           <div className="space-y-4">
             <div>
               <Label>Contract Type</Label>
@@ -286,7 +297,7 @@ export default function ContractForm({ onSubmit, onCancel, diamonds }) {
               </RadioGroup>
             </div>
 
-            {/* Diamond Selection - Same as your original */}
+            {/* Diamond Selection */}
             <div>
               <Label htmlFor="diamond">Select Diamond</Label>
               <Select
@@ -306,7 +317,7 @@ export default function ContractForm({ onSubmit, onCancel, diamonds }) {
               </Select>
             </div>
 
-            {/* Counterparty Email - Same as your original */}
+            {/* Counterparty Email */}
             <div>
               <Label htmlFor="counterparty">
                 {formData.type === 'Buy' || formData.type === 'MemoTo' 
@@ -336,7 +347,7 @@ export default function ContractForm({ onSubmit, onCancel, diamonds }) {
               )}
             </div>
 
-            {/* Price for Buy/Sell - Same as your original */}
+            {/* Price for Buy/Sell */}
             {(formData.type === 'Buy' || formData.type === 'Sell') && (
               <div>
                 <Label htmlFor="price">Price (USD)</Label>
@@ -353,7 +364,7 @@ export default function ContractForm({ onSubmit, onCancel, diamonds }) {
               </div>
             )}
 
-            {/* NEW: Loan Duration for Lending */}
+            {/* Loan Duration for Lending */}
             {isLendingContract && (
               <div>
                 <Label htmlFor="duration">Loan Duration (Days)</Label>
@@ -369,7 +380,7 @@ export default function ContractForm({ onSubmit, onCancel, diamonds }) {
               </div>
             )}
 
-            {/* NEW: Terms for Lending */}
+            {/* Terms for Lending */}
             {isLendingContract && (
               <div>
                 <Label htmlFor="terms">Terms & Conditions</Label>
@@ -383,7 +394,7 @@ export default function ContractForm({ onSubmit, onCancel, diamonds }) {
               </div>
             )}
 
-            {/* Expiration Date - Same as your original */}
+            {/* Expiration Date */}
             <div>
               <Label htmlFor="expiration">Expiration Date</Label>
               <Input
