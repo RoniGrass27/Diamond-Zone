@@ -61,7 +61,7 @@ export default function ContractForm({ onSubmit, onCancel, diamonds }) {
   const [currentUser, setCurrentUser] = useState(null);
   
   const [formData, setFormData] = useState({
-    type: 'MemoFrom', // Changed from 'MemoTo' to 'MemoFrom'
+    type: 'MemoFrom', 
     diamond_id: '',
     buyer_email: '',
     seller_email: '',
@@ -79,21 +79,26 @@ export default function ContractForm({ onSubmit, onCancel, diamonds }) {
   }, []);
 
   const loadCurrentUser = async () => {
-    try {
-      const response = await fetch('/api/me');
-      const userData = await response.json();
-      setCurrentUser(userData);
-      
-      if (userData.walletCreated) {
-        setWalletInfo({
-          address: userData.walletAddress,
-          createdAt: new Date()
-        });
+  try {
+    const token = localStorage.getItem('token');
+    const response = await fetch('/api/me', {
+      headers: {
+        'Authorization': `Bearer ${token}`
       }
-    } catch (error) {
-      console.error('Error loading current user:', error);
+    });
+    const userData = await response.json();
+    setCurrentUser(userData);
+    
+    if (userData.walletCreated) {
+      setWalletInfo({
+        address: userData.walletAddress,
+        createdAt: new Date()
+      });
     }
-  };
+  } catch (error) {
+    console.error('Error loading current user:', error);
+  }
+};
 
   const autoConnectWallet = async () => {
   if (window.ethereum) {
@@ -113,29 +118,32 @@ export default function ContractForm({ onSubmit, onCancel, diamonds }) {
   };
 
   const createWallet = async () => {
-    try {
-      setWalletLoading(true);
-      const response = await fetch('/api/users/enable-blockchain', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
-      });
-      
-      const result = await response.json();
-      
-      if (result.success) {
-        setWalletInfo(result.wallet);
-        // Reload user data
-        await loadCurrentUser();
-      } else {
-        alert('Failed to create wallet. Please try again.');
+  try {
+    setWalletLoading(true);
+    const token = localStorage.getItem('token');
+    const response = await fetch('/api/users/enable-blockchain', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
       }
-    } catch (error) {
-      console.error('Error creating wallet:', error);
+    });
+
+    const result = await response.json();
+
+    if (result.success) {
+      setWalletInfo(result.wallet);
+      await loadCurrentUser();
+    } else {
       alert('Failed to create wallet. Please try again.');
-    } finally {
-      setWalletLoading(false);
     }
-  };
+  } catch (error) {
+    console.error('Error creating wallet:', error);
+    alert('Failed to create wallet. Please try again.');
+  } finally {
+    setWalletLoading(false);
+  }
+};
 
   const handleChange = (field, value) => {
     if (field === 'price') {
@@ -225,14 +233,34 @@ export default function ContractForm({ onSubmit, onCancel, diamonds }) {
         console.log("Memo request sent to blockchain");
       }
 
-      const contractData = {
-        ...formData,
-        price: (formData.type === 'Buy' || formData.type === 'Sell') ? formData.price : null,
-        buyer_email: formData.type === 'Buy' || formData.type === 'MemoFrom' ? formData.buyer_email : null,
-        seller_email: formData.type === 'Sell' || formData.type === 'MemoTo' ? formData.seller_email : null,
-        blockchain_enabled: true,
-        wallet_address: walletInfo?.address
-      };
+      const {
+      diamond_id,
+      buyer_email,
+      price,
+      expiration_date,
+      duration,
+      terms,
+      type
+    } = formData;
+
+     const contractData = {
+      diamondId: formData.diamond_id,
+      price: (formData.type === 'Buy' || formData.type === 'Sell') ? formData.price : null,
+      buyerEmail: (formData.type === 'Buy' || formData.type === 'MemoFrom')
+        ? formData.buyer_email
+        : currentUser?.email,
+      sellerEmail: (formData.type === 'Sell' || formData.type === 'MemoFrom')
+        ? currentUser?.email
+        : formData.buyer_email,
+      expirationDate: formData.expiration_date,
+      duration: formData.duration,
+      terms: formData.terms?.trim() || "Standard terms apply.",
+      type: formData.type,
+      status: "pending",
+      createdDate: new Date(),
+      blockchain_enabled: true,
+      wallet_address: walletInfo?.address
+    };
 
       console.log("Sending contract to backend:", contractData);
       await onSubmit(contractData);

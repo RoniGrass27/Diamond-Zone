@@ -80,10 +80,10 @@ export default function ContractsPage() {
       const result = await Contract.create({
         type: contractData.type,
         diamondId: contractData.diamondId, // Use the correct field name
-        buyerEmail: contractData.buyer_email,
-        sellerEmail: contractData.seller_email,
+        buyerEmail: contractData.buyerEmail,
+        sellerEmail: contractData.sellerEmail,
         price: contractData.price,
-        expirationDate: contractData.expiration_date,
+        expirationDate: contractData.expirationDate,
         duration: contractData.duration,
         terms: contractData.terms,
         status: "pending",
@@ -223,7 +223,7 @@ export default function ContractsPage() {
                   <th className="text-left py-3 px-4">Contract #</th>
                   <th className="text-left py-3 px-4">Type</th>
                   <th className="text-left py-3 px-4">Diamond</th>
-                  <th className="text-left py-3 px-4">Counterparty</th>
+                  <th className="hidden text-left py-3 px-4">Counterparty</th>
                   <th className="text-left py-3 px-4">Details</th>
                   <th className="text-left py-3 px-4">Created At</th>
                   <th className="text-left py-3 px-4">Expiration</th>
@@ -255,14 +255,14 @@ export default function ContractsPage() {
                         </td>
                         <td className="py-3 px-4">
                           <div className="flex items-center gap-2">
-                            <span className={displayInfo.isInitiator ? 'font-medium' : ''}>
-                              {displayInfo.direction}
+                            <span className="text-sm text-gray-700">
+                              {contract.type}
                             </span>
-                            {displayInfo.isInitiator && (
+                            {/*displayInfo.isInitiator && (
                               <Badge variant="outline" className="text-xs">
                                 Created by you
                               </Badge>
-                            )}
+                            )*/}
                           </div>
                         </td>
                         <td className="py-3 px-4">
@@ -270,7 +270,7 @@ export default function ContractsPage() {
                             ? `#${String(diamond.diamondNumber).padStart(3, '0')}`
                             : 'N/A'}
                         </td>
-                        <td className="py-3 px-4">
+                        <td className="hidden py-3 px-4">
                           <div className="flex items-center gap-2">
                             <UserIcon className="h-4 w-4 text-gray-400" />
                             <div className="text-sm">
@@ -296,7 +296,7 @@ export default function ContractsPage() {
                                 {contract.duration} days
                               </div>
                             )}
-                            {contract.terms && (
+                            {contract.terms && contract.terms !== "Standard terms apply." && (
                               <div className="text-xs text-gray-400 truncate max-w-[150px]" title={contract.terms}>
                                 {contract.terms}
                               </div>

@@ -201,8 +201,8 @@ app.post('/api/contracts', protect, async (req, res) => {
     
     if (req.body.type === 'MemoFrom') {
       // MemoFrom: user is sender, buyer_email is recipient
-      sellerEmail = req.user.email;
-      buyerEmail = req.body.buyer_email;
+      buyerEmail = req.body.buyerEmail || req.body.buyer_email;
+      sellerEmail = req.body.sellerEmail || req.body.seller_email;
       
     } else if (req.body.type === 'Buy') {
       // Buy: user is buyer, buyer_email is seller
@@ -334,6 +334,51 @@ app.post('/api/contracts', protect, async (req, res) => {
       error: 'Server error creating contract',
       message: error.message
     });
+  }
+});
+
+app.post('/api/contracts/:id/approve', protect, async (req, res) => {
+  try {
+    const contract = await Contract.findById(req.params.id);
+    if (!contract) {
+      return res.status(404).json({ error: 'Contract not found' });
+    }
+
+    // Ensure the current user is one of the involved parties
+    const userEmail = req.user.email;
+    const isRecipient = contract.buyerEmail === userEmail || contract.sellerEmail === userEmail;
+    if (!isRecipient) {
+      return res.status(403).json({ error: 'Not authorized to approve this contract' });
+    }
+
+    // Update contract status
+    contract.status = 'approved';
+    contract.approvedAt = new Date();
+    await contract.save();
+
+    // Notify the contract creator
+    try {
+      const creator = await User.findById(contract.ownerId);
+      if (creator && creator.email !== userEmail) {
+        const message = new Message({
+          type: 'contract_approval',
+          fromUser: req.user._id,
+          toUser: creator._id,
+          title: 'Contract Approved',
+          content: `Your ${contract.type} contract #${contract.contractNumber} has been approved.`,
+          contractId: contract._id,
+          metadata: { priority: 'high' }
+        });
+        await message.save();
+      }
+    } catch (msgErr) {
+      console.error("Message creation failed (but contract was approved):", msgErr);
+    }
+
+    res.json({ success: true, contract });
+  } catch (error) {
+    console.error("Error approving contract:", error);
+    res.status(500).json({ error: error.message });
   }
 });
 
