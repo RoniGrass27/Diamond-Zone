@@ -151,6 +151,28 @@ export default function Dashboard() {
     }
   };
 
+  const formatMessageContent = (message) => {
+    if (message.type === 'contract_request') {
+      let baseContent = message.content;
+      
+      // Add additional details based on contract type
+      if (message.metadata?.contractType === 'MemoFrom') {
+        if (message.metadata?.duration) {
+          baseContent += ` (${message.metadata.duration} days)`;
+        }
+        if (message.metadata?.terms) {
+          baseContent += `. Terms: ${message.metadata.terms.substring(0, 50)}${message.metadata.terms.length > 50 ? '...' : ''}`;
+        }
+      } else if (message.metadata?.price) {
+        baseContent += ` for $${message.metadata.price.toLocaleString()}`;
+      }
+      
+      return baseContent;
+    }
+    
+    return message.content;
+  };
+
   const handleMarkAsRead = async (messageId) => {
     try {
       const token = localStorage.getItem('token');
@@ -312,14 +334,22 @@ export default function Dashboard() {
                               <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
                             )}
                           </div>
-                          <p className="text-sm text-gray-600 mb-2">{message.content}</p>
+                          <p className="text-sm text-gray-600 mb-2">{formatMessageContent(message)}</p>
                           <div className="flex items-center gap-2 text-xs text-gray-500">
                             <Clock className="h-3 w-3" />
                             {format(new Date(message.createdAt), 'MMM d, HH:mm')}
-                            {message.metadata?.price && (
+                            {message.metadata?.contractType && (
                               <>
                                 <span>•</span>
-                                <span>${message.metadata.price.toLocaleString()}</span>
+                                <Badge variant="outline" className="text-xs">
+                                  {message.metadata.contractType === 'MemoFrom' ? 'Memo Request' : message.metadata.contractType}
+                                </Badge>
+                              </>
+                            )}
+                            {message.metadata?.duration && message.metadata.contractType === 'MemoFrom' && (
+                              <>
+                                <span>•</span>
+                                <span>{message.metadata.duration} days</span>
                               </>
                             )}
                           </div>

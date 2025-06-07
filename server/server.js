@@ -1,5 +1,3 @@
-// Note: Make sure to install these additional dependencies:
-// npm install bcryptjs jsonwebtoken 
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
@@ -29,6 +27,25 @@ app.use('/api/auth', authRoutes);
 
 // Message routes (protected)
 app.use('/api/messages', messageRoutes);
+
+app.get('/api/users/all', protect, async (req, res) => {
+  try {
+    // Only return email and name fields for privacy
+    const users = await User.find({}, 'email fullName businessName').select('-password');
+    
+    const usersData = users.map(user => ({
+      email: user.email,
+      fullName: user.fullName,
+      businessName: user.businessName,
+      full_name: user.fullName // Keep legacy field name for compatibility
+    }));
+    
+    res.json(usersData);
+  } catch (error) {
+    console.error('Error fetching users:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
 
 // Blockchain routes (protected)
 app.use('/api/blockchain', protect, blockchainRoutes);
@@ -158,11 +175,50 @@ app.post('/api/contracts', protect, async (req, res) => {
     
     const contractNumber = await getNextContractNumber();
 
-    const contract = new Contract({
+    // Process the contract data based on type
+    let contractData = {
       ...req.body,
       contractNumber,
       ownerId: req.user._id
-    });    
+    };
+
+    // Ensure diamondId is set correctly
+    if (!contractData.diamondId && contractData.diamond_id) {
+      contractData.diamondId = contractData.diamond_id;
+    }
+    
+    // Remove any frontend-only fields
+    delete contractData.diamond_id;
+
+    // Handle email assignments based on contract type
+    if (contractData.type === 'MemoFrom') {
+      // For MemoFrom: current user is seller (from), buyer_email is the recipient (to)
+      contractData.sellerEmail = req.user.email; // Auto-fill with current user's email
+      contractData.buyerEmail = contractData.buyer_email; // The 'to' email
+    } else if (contractData.type === 'Buy') {
+      // For Buy: current user is buyer, buyer_email contains seller's email
+      contractData.buyerEmail = req.user.email;
+      contractData.sellerEmail = contractData.buyer_email; // The seller's email
+    } else if (contractData.type === 'Sell') {
+      // For Sell: current user is seller, buyer_email contains buyer's email
+      contractData.sellerEmail = req.user.email;
+      contractData.buyerEmail = contractData.buyer_email; // The buyer's email
+    }
+
+    // Remove the temporary buyer_email field
+    delete contractData.buyer_email;
+    
+    // Validate required fields
+    if (!contractData.diamondId) {
+      return res.status(400).json({ error: 'Diamond ID is required' });
+    }
+    if (!contractData.buyerEmail || !contractData.sellerEmail) {
+      return res.status(400).json({ error: 'Both buyer and seller emails are required' });
+    }
+    
+    console.log('Processed contract data:', contractData);
+    
+    const contract = new Contract(contractData);
     
     await contract.save();
     console.log('Contract saved:', contract._id);
@@ -171,19 +227,29 @@ app.post('/api/contracts', protect, async (req, res) => {
       type: contract.type,
       buyerEmail: contract.buyerEmail,
       sellerEmail: contract.sellerEmail,
+      diamondId: contract.diamondId,
       ownerId: contract.ownerId
     });
 
     // Create message notification for the recipient
     try {
-      const recipientEmail = req.body.buyerEmail || req.body.sellerEmail;
+      let recipientEmail = null;
+      
+      if (contract.type === 'MemoFrom') {
+        recipientEmail = contract.buyerEmail; // Send to the 'to' email
+      } else if (contract.type === 'Buy') {
+        recipientEmail = contract.sellerEmail; // Send to the seller
+      } else if (contract.type === 'Sell') {
+        recipientEmail = contract.buyerEmail; // Send to the buyer
+      }
+      
       console.log('Recipient email:', recipientEmail);
       console.log('Sender email:', req.user.email);
       
       if (recipientEmail && recipientEmail !== req.user.email) {
         console.log('Creating message for recipient...');
         
-        const diamond = await Diamond.findById(req.body.diamondId);
+        const diamond = await Diamond.findById(contract.diamondId);
         console.log('Diamond found:', diamond ? `#${diamond.diamondNumber}` : 'Not found');
         
         const messageResult = await createContractRequestMessage(
@@ -195,7 +261,9 @@ app.post('/api/contracts', protect, async (req, res) => {
             diamondNumber: diamond?.diamondNumber,
             diamondId: diamond?._id,
             price: contract.price,
-            expirationDate: contract.expirationDate
+            expirationDate: contract.expirationDate,
+            duration: contract.duration,
+            terms: contract.terms
           }
         );
         console.log('Message created successfully:', messageResult._id);
@@ -210,54 +278,21 @@ app.post('/api/contracts', protect, async (req, res) => {
     res.status(201).json(contract);
   } catch (error) {
     console.error("Error creating contract:", error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Contract approval routes
-app.post('/api/contracts/:id/approve', protect, async (req, res) => {
-  try {
-    const contract = await Contract.findById(req.params.id);
-    if (!contract) {
-      return res.status(404).json({ error: 'Contract not found' });
-    }
-
-    // Check if user is the intended recipient
-    const userEmail = req.user.email;
-    const isRecipient = (contract.buyerEmail === userEmail) || (contract.sellerEmail === userEmail);
     
-    if (!isRecipient) {
-      return res.status(403).json({ error: 'Not authorized to approve this contract' });
+    // Send more detailed error information
+    if (error.name === 'ValidationError') {
+      const messages = Object.values(error.errors).map(val => val.message);
+      return res.status(400).json({ 
+        error: 'Validation failed', 
+        details: messages,
+        fields: Object.keys(error.errors)
+      });
     }
-
-    // Update contract status
-    contract.status = 'approved';
-    contract.approvedAt = new Date();
-    await contract.save();
-
-    // Create notification message to contract creator
-    try {
-      const creator = await User.findById(contract.ownerId);
-      if (creator && creator.email !== userEmail) {
-        const message = new Message({
-          type: 'contract_approval',
-          fromUser: req.user._id,
-          toUser: creator._id,
-          title: 'Contract Approved',
-          content: `Your ${contract.type} contract #${contract.contractNumber} has been approved`,
-          contractId: contract._id,
-          metadata: { priority: 'medium' }
-        });
-        await message.save();
-      }
-    } catch (messageError) {
-      console.error('Error creating approval notification:', messageError);
-    }
-
-    res.json({ success: true, contract });
-  } catch (error) {
-    console.error('Error approving contract:', error);
-    res.status(500).json({ error: error.message });
+    
+    res.status(500).json({ 
+      error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
   }
 });
 

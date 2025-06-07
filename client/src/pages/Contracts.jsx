@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Search, Plus, QrCode, FileText } from "lucide-react";
+import { Search, Plus, QrCode, FileText, Clock, User as UserIcon } from "lucide-react";
 import { format } from "date-fns";
 
 import ContractForm from "../components/contracts/ContractForm";
@@ -13,6 +13,8 @@ import QRCodeDialog from "../components/contracts/QRCodeDialog";
 export default function ContractsPage() {
   const [contracts, setContracts] = useState([]);
   const [diamonds, setDiamonds] = useState([]);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [users, setUsers] = useState([]); // Store all users for name lookup
   const [loading, setLoading] = useState(true);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showQrDialog, setShowQrDialog] = useState(false);
@@ -21,16 +23,28 @@ export default function ContractsPage() {
 
   useEffect(() => {
     loadData();
+    loadCurrentUser();
   }, []);
+
+  const loadCurrentUser = async () => {
+    try {
+      const userData = JSON.parse(localStorage.getItem('user'));
+      setCurrentUser(userData);
+    } catch (error) {
+      console.error("Error loading current user:", error);
+    }
+  };
 
   const loadData = async () => {
     try {
-      const [contractsData, diamondsData] = await Promise.all([
+      const [contractsData, diamondsData, usersData] = await Promise.all([
         Contract.list(),
-        Diamond.list()
+        Diamond.list(),
+        fetchAllUsers() // Fetch users to get full names
       ]);
       setContracts(contractsData);
       setDiamonds(diamondsData);
+      setUsers(usersData || []);
     } catch (error) {
       console.error("Error loading data:", error);
     } finally {
@@ -38,22 +52,55 @@ export default function ContractsPage() {
     }
   };
 
+  // Function to fetch all users for name lookup
+  const fetchAllUsers = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('/api/users/all', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        return await response.json();
+      }
+      return [];
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      return [];
+    }
+  };
+
   const handleCreateContract = async (contractData) => {
     try {
-      await Contract.create({
+      console.log('Creating contract with data:', contractData);
+      
+      const result = await Contract.create({
         type: contractData.type,
-        diamondId: contractData.diamond_id,
+        diamondId: contractData.diamondId, // Use the correct field name
         buyerEmail: contractData.buyer_email,
         sellerEmail: contractData.seller_email,
         price: contractData.price,
         expirationDate: contractData.expiration_date,
+        duration: contractData.duration,
+        terms: contractData.terms,
         status: "pending",
-        createdDate: new Date()
+        createdDate: new Date(),
+        blockchain_enabled: contractData.blockchain_enabled,
+        wallet_address: contractData.wallet_address
       });
+      
+      console.log('Contract creation result:', result);
+      
       await loadData();
       setShowCreateDialog(false);
+      
+      return { success: true };
     } catch (error) {
       console.error("Error creating contract:", error);
+      return { error: error.message || 'Failed to create contract' };
     }
   };
 
@@ -62,9 +109,79 @@ export default function ContractsPage() {
     setShowQrDialog(true);
   };
 
+  // Helper function to get user's full name by email
+  const getUserFullName = (email) => {
+    const user = users.find(u => u.email === email);
+    return user ? user.fullName || user.full_name : email;
+  };
+
+  // Helper function to get contract display info
+  const getContractDisplayInfo = (contract) => {
+    if (!currentUser) return { direction: contract.type, counterparty: 'Unknown' };
+    
+    const userEmail = currentUser.email;
+    
+    if (contract.type === 'MemoFrom') {
+      if (contract.sellerEmail === userEmail) {
+        return {
+          direction: 'Memo To',
+          counterparty: contract.buyerEmail,
+          counterpartyName: getUserFullName(contract.buyerEmail),
+          isInitiator: true
+        };
+      } else {
+        return {
+          direction: 'Memo From',
+          counterparty: contract.sellerEmail,
+          counterpartyName: getUserFullName(contract.sellerEmail),
+          isInitiator: false
+        };
+      }
+    } else if (contract.type === 'Buy') {
+      if (contract.buyerEmail === userEmail) {
+        return {
+          direction: 'Buying From',
+          counterparty: contract.sellerEmail,
+          counterpartyName: getUserFullName(contract.sellerEmail),
+          isInitiator: true
+        };
+      } else {
+        return {
+          direction: 'Sell To',
+          counterparty: contract.buyerEmail,
+          counterpartyName: getUserFullName(contract.buyerEmail),
+          isInitiator: false
+        };
+      }
+    } else if (contract.type === 'Sell') {
+      if (contract.sellerEmail === userEmail) {
+        return {
+          direction: 'Selling To',
+          counterparty: contract.buyerEmail,
+          counterpartyName: getUserFullName(contract.buyerEmail),
+          isInitiator: true
+        };
+      } else {
+        return {
+          direction: 'Buy From',
+          counterparty: contract.sellerEmail,
+          counterpartyName: getUserFullName(contract.sellerEmail),
+          isInitiator: false
+        };
+      }
+    }
+    
+    return { 
+      direction: contract.type, 
+      counterparty: 'Unknown',
+      counterpartyName: 'Unknown'
+    };
+  };
+
   const filteredContracts = contracts.filter(contract => 
     contract.contract_number?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    contract.type?.toLowerCase().includes(searchQuery.toLowerCase())
+    contract.type?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    getContractDisplayInfo(contract).direction.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
@@ -106,8 +223,10 @@ export default function ContractsPage() {
                   <th className="text-left py-3 px-4">Contract #</th>
                   <th className="text-left py-3 px-4">Type</th>
                   <th className="text-left py-3 px-4">Diamond</th>
+                  <th className="text-left py-3 px-4">Counterparty</th>
+                  <th className="text-left py-3 px-4">Details</th>
                   <th className="text-left py-3 px-4">Created At</th>
-                  <th className="text-left py-3 px-4">Expiration Date</th>
+                  <th className="text-left py-3 px-4">Expiration</th>
                   <th className="text-left py-3 px-4">Status</th>
                   <th className="text-right py-3 px-4">Actions</th>
                 </tr>
@@ -115,11 +234,11 @@ export default function ContractsPage() {
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan="6" className="text-center py-8">Loading...</td>
+                    <td colSpan="9" className="text-center py-8">Loading...</td>
                   </tr>
                 ) : filteredContracts.length === 0 ? (
                   <tr>
-                    <td colSpan="6" className="text-center py-8">
+                    <td colSpan="9" className="text-center py-8">
                       <FileText className="h-8 w-8 text-gray-400 mx-auto mb-2" />
                       <p className="text-gray-500">No contracts found</p>
                     </td>
@@ -127,19 +246,67 @@ export default function ContractsPage() {
                 ) : (
                   filteredContracts.map(contract => {
                     const diamond = diamonds.find(d => String(d.id) === String(contract.diamondId?._id));
+                    const displayInfo = getContractDisplayInfo(contract);
+                    
                     return (
-                      <tr key={contract.id} className="border-b">
-                        <td className="py-3 px-4 font-medium">#{String(contract.contractNumber).padStart(3, '0')}</td>
-                        <td className="py-3 px-4">{contract.type}</td>
+                      <tr key={contract.id} className="border-b hover:bg-gray-50">
+                        <td className="py-3 px-4 font-medium">
+                          #{String(contract.contractNumber).padStart(3, '0')}
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="flex items-center gap-2">
+                            <span className={displayInfo.isInitiator ? 'font-medium' : ''}>
+                              {displayInfo.direction}
+                            </span>
+                            {displayInfo.isInitiator && (
+                              <Badge variant="outline" className="text-xs">
+                                Created by you
+                              </Badge>
+                            )}
+                          </div>
+                        </td>
                         <td className="py-3 px-4">
                           {diamond && diamond.diamondNumber
                             ? `#${String(diamond.diamondNumber).padStart(3, '0')}`
                             : 'N/A'}
                         </td>
                         <td className="py-3 px-4">
+                          <div className="flex items-center gap-2">
+                            <UserIcon className="h-4 w-4 text-gray-400" />
+                            <div className="text-sm">
+                              <div className="font-medium">
+                                {displayInfo.counterpartyName}
+                              </div>
+                              <div className="text-gray-500 text-xs">
+                                {displayInfo.counterparty}
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="text-sm">
+                            {contract.price && (
+                              <div className="font-medium text-green-600">
+                                ${contract.price.toLocaleString()}
+                              </div>
+                            )}
+                            {contract.duration && (
+                              <div className="text-gray-500 flex items-center gap-1">
+                                <Clock className="h-3 w-3" />
+                                {contract.duration} days
+                              </div>
+                            )}
+                            {contract.terms && (
+                              <div className="text-xs text-gray-400 truncate max-w-[150px]" title={contract.terms}>
+                                {contract.terms}
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 text-sm">
                           {contract.createdDate ? format(new Date(contract.createdDate), 'MMM d, yyyy') : '—'}
                         </td>
-                         <td className="py-3 px-4">
+                        <td className="py-3 px-4 text-sm">
                           {contract.expirationDate ? (
                             <span
                               className={
@@ -154,11 +321,12 @@ export default function ContractsPage() {
                         </td>
                         <td className="py-3 px-4">
                           <Badge 
-                            variant={contract.status === "Active" ? "default" : "outline"}
+                            variant={contract.status === "approved" ? "default" : "outline"}
                             className={
-                              contract.status === "Pending" ? "bg-yellow-100 text-yellow-800" :
-                              contract.status === "Active" ? "bg-green-100 text-green-800" :
-                              contract.status === "Completed" ? "bg-blue-100 text-blue-800" :
+                              contract.status === "pending" ? "bg-yellow-100 text-yellow-800" :
+                              contract.status === "approved" ? "bg-green-100 text-green-800" :
+                              contract.status === "rejected" ? "bg-red-100 text-red-800" :
+                              contract.status === "returned" ? "bg-blue-100 text-blue-800" :
                               "bg-gray-100 text-gray-800"
                             }
                           >
