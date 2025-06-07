@@ -104,9 +104,7 @@ export default function Dashboard() {
         setContracts(updatedContracts || []);
         
         // Update message locally
-        setMessages(prev => prev.map(msg => 
-          msg._id === messageId ? { ...msg, isRead: true } : msg
-        ));
+        setMessages(prev => prev.filter(msg => msg._id !== messageId));
       }
     } catch (error) {
       console.error('Error approving contract:', error);
@@ -142,9 +140,7 @@ export default function Dashboard() {
         setContracts(updatedContracts || []);
         
         // Update message locally
-        setMessages(prev => prev.map(msg => 
-          msg._id === messageId ? { ...msg, isRead: true } : msg
-        ));
+        setMessages(prev => prev.filter(msg => msg._id !== messageId));
       }
     } catch (error) {
       console.error('Error rejecting contract:', error);
