@@ -1,21 +1,18 @@
 import Layout from "./Layout.jsx";
+import ProtectedRoute from "../components/ProtectedRoute.jsx";
 
 import Dashboard from "./Dashboard";
-
 import Contracts from "./Contracts";
-
 import Inventory from "./Inventory";
+import Login from "./Login";
+import Signup from "./Signup";
 
-import { BrowserRouter as Router, Route, Routes, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Route, Routes, useLocation, Navigate } from 'react-router-dom';
 
 const PAGES = {
-    
     Dashboard: Dashboard,
-    
     Contracts: Contracts,
-    
     Inventory: Inventory,
-    
 }
 
 function _getCurrentPage(url) {
@@ -36,21 +33,35 @@ function PagesContent() {
     const location = useLocation();
     const currentPage = _getCurrentPage(location.pathname);
     
-    return (
-        <Layout currentPageName={currentPage}>
-            <Routes>            
-                
-                    <Route path="/" element={<Dashboard />} />
-                
-                
-                <Route path="/Dashboard" element={<Dashboard />} />
-                
-                <Route path="/Contracts" element={<Contracts />} />
-                
-                <Route path="/Inventory" element={<Inventory />} />
-                
+    // Check if current route is an auth page
+    const authPages = ['/login', '/signup'];
+    const isAuthPage = authPages.some(page => location.pathname.toLowerCase().includes(page));
+    
+    if (isAuthPage) {
+        // Render auth pages without layout
+        return (
+            <Routes>
+                <Route path="/login" element={<Login />} />
+                <Route path="/signup" element={<Signup />} />
             </Routes>
-        </Layout>
+        );
+    }
+    
+    // Render protected pages with layout
+    return (
+        <ProtectedRoute>
+            <Layout currentPageName={currentPage}>
+                <Routes>            
+                    <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                    <Route path="/dashboard" element={<Dashboard />} />
+                    <Route path="/Dashboard" element={<Dashboard />} />
+                    <Route path="/contracts" element={<Contracts />} />
+                    <Route path="/Contracts" element={<Contracts />} />
+                    <Route path="/inventory" element={<Inventory />} />
+                    <Route path="/Inventory" element={<Inventory />} />
+                </Routes>
+            </Layout>
+        </ProtectedRoute>
     );
 }
 

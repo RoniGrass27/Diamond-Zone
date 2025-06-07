@@ -1,6 +1,5 @@
-
 import React from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { 
   Diamond, 
@@ -11,8 +10,26 @@ import {
   LogOut
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { User } from "@/api/entities";
+import { toast } from "react-toastify";
 
 export default function Layout({ children }) {
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    try {
+      await User.logout();
+      toast.success("Logged out successfully");
+      navigate("/login");
+    } catch (error) {
+      console.error("Logout error:", error);
+      // Still redirect to login even if API call fails
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      navigate("/login");
+    }
+  };
+
   return (
     <div className="min-h-screen flex">
       {/* Sidebar */}
@@ -24,25 +41,25 @@ export default function Layout({ children }) {
         
         <nav className="flex-1 p-4">
           <div className="space-y-2">
-            <Link to={createPageUrl("Dashboard")}>
+            <Link to="/dashboard">
               <Button variant="ghost" className="w-full justify-start">
                 <LayoutDashboard className="mr-2 h-4 w-4" />
                 Dashboard
               </Button>
             </Link>
-            <Link to={createPageUrl("Inventory")}>
+            <Link to="/inventory">
               <Button variant="ghost" className="w-full justify-start">
                 <Diamond className="mr-2 h-4 w-4" />
                 Inventory
               </Button>
             </Link>
-            <Link to={createPageUrl("Contracts")}>
+            <Link to="/contracts">
               <Button variant="ghost" className="w-full justify-start">
                 <FileText className="mr-2 h-4 w-4" />
                 Contracts
               </Button>
             </Link>
-            <Link to={createPageUrl("Marketplace")}>
+            <Link to="/marketplace">
               <Button variant="ghost" className="w-full justify-start">
                 <ShoppingCart className="mr-2 h-4 w-4" />
                 Marketplace
@@ -56,7 +73,11 @@ export default function Layout({ children }) {
             <Settings className="mr-2 h-4 w-4" />
             Settings
           </Button>
-          <Button variant="ghost" className="w-full justify-start text-red-600 hover:text-red-700">
+          <Button 
+            variant="ghost" 
+            className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50"
+            onClick={handleLogout}
+          >
             <LogOut className="mr-2 h-4 w-4" />
             Logout
           </Button>
