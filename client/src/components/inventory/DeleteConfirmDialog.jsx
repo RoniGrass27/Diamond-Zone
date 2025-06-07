@@ -1,5 +1,3 @@
-// change the text from name to carat, shape...
-
 import React from 'react';
 import {
   Dialog,
