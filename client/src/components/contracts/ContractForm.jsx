@@ -19,6 +19,22 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, Wallet, Link, AlertCircle, CheckCircle } from "lucide-react";
 import { toast } from "react-toastify";
 
+
+//for testing purposes
+// const connectWallet = async () => {
+//   if (window.ethereum) {
+//     try {
+//       const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+//       console.log("MetaMask connected:", accounts[0]);
+//       alert("MetaMask connected: " + accounts[0]);
+//     } catch (err) {
+//       console.error("MetaMask connection error:", err);
+//     }
+//   } else {
+//     alert("MetaMask is not installed.");
+//   }
+// };
+
 // Import BlockchainService (we'll need to create this)
 // For now, we'll create a simple mock
 const BlockchainService = {
@@ -39,19 +55,19 @@ const BlockchainService = {
 export default function ContractForm({ onSubmit, onCancel, diamonds }) {
   const [emailError, setEmailError] = useState('');
   const [loading, setLoading] = useState(false);
+  //const [useBlockchain, setUseBlockchain] = useState(false);
   const [walletInfo, setWalletInfo] = useState(null);
   const [walletLoading, setWalletLoading] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   
   const [formData, setFormData] = useState({
-    type: 'MemoFrom', // Changed default to MemoFrom
+    type: 'MemoFrom', // Changed from 'MemoTo' to 'MemoFrom'
     diamond_id: '',
-    buyer_email: '', // This will be the 'To' email for MemoFrom
-    seller_email: '', // This will be auto-filled with current user's email
+    buyer_email: '',
+    seller_email: '',
     price: null,
     expiration_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-    // Blockchain-specific fields
-    duration: 30, // days
+    duration: 30,
     terms: '',
     blockchain_enabled: false
   });
@@ -64,21 +80,15 @@ export default function ContractForm({ onSubmit, onCancel, diamonds }) {
 
   const loadCurrentUser = async () => {
     try {
-      const userData = JSON.parse(localStorage.getItem('user'));
-      if (userData) {
-        setCurrentUser(userData);
-        // Auto-fill seller email with current user's email
-        setFormData(prev => ({ 
-          ...prev, 
-          seller_email: userData.email 
-        }));
-        
-        if (userData.walletCreated) {
-          setWalletInfo({
-            address: userData.walletAddress,
-            createdAt: new Date()
-          });
-        }
+      const response = await fetch('/api/me');
+      const userData = await response.json();
+      setCurrentUser(userData);
+      
+      if (userData.walletCreated) {
+        setWalletInfo({
+          address: userData.walletAddress,
+          createdAt: new Date()
+        });
       }
     } catch (error) {
       console.error('Error loading current user:', error);
@@ -86,20 +96,20 @@ export default function ContractForm({ onSubmit, onCancel, diamonds }) {
   };
 
   const autoConnectWallet = async () => {
-    if (window.ethereum) {
-      try {
-        const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
-        if (accounts.length > 0) {
-          setWalletInfo({
-            address: accounts[0],
-            createdAt: new Date()
-          });
-          console.log("MetaMask auto-connected:", accounts[0]);
-        }
-      } catch (err) {
-        console.warn("MetaMask connection skipped or rejected.");
+  if (window.ethereum) {
+    try {
+      const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+      if (accounts.length > 0) {
+        setWalletInfo({
+          address: accounts[0],
+          createdAt: new Date()
+        });
+        console.log("MetaMask auto-connected:", accounts[0]);
       }
+    } catch (err) {
+      console.warn("MetaMask connection skipped or rejected.");
     }
+   }
   };
 
   const createWallet = async () => {
@@ -137,10 +147,15 @@ export default function ContractForm({ onSubmit, onCancel, diamonds }) {
       setFormData(prev => ({ ...prev, [field]: value }));
     }
 
-    if (field === 'buyer_email') {
+    if (field === 'buyer_email' || field === 'seller_email') {
       setEmailError('');
     }
   };
+
+  // const handleBlockchainToggle = (enabled) => {
+  //   setUseBlockchain(enabled);
+  //   setFormData(prev => ({ ...prev, blockchain_enabled: enabled }));
+  // };
 
   function isValidEmail(email) {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -151,17 +166,20 @@ export default function ContractForm({ onSubmit, onCancel, diamonds }) {
     setLoading(true);
 
     try {
-      // Validate buyer email (To email)
-      if (formData.buyer_email && !isValidEmail(formData.buyer_email)) {
+      // Validate emails
+      if (
+        (formData.buyer_email && !isValidEmail(formData.buyer_email)) ||
+        (formData.seller_email && !isValidEmail(formData.seller_email))
+      ) {
         setEmailError('Invalid email address');
         return;
       }
 
       setEmailError('');
 
-      const isMemoFromContract = formData.type === 'MemoFrom';
+      const isLendingContract = formData.type === 'MemoTo';
 
-      if (isMemoFromContract) {
+      if (isLendingContract) {
         const Web3 = (await import("web3")).default;
         const DiamondLendingJSON = await import("../../abis/DiamondLending.json");
         const DiamondLendingAddress = "0xB4faE67601084B25244d3bb103c1459Fdc99B5Ff";
@@ -185,15 +203,15 @@ export default function ContractForm({ onSubmit, onCancel, diamonds }) {
           return;
         }
 
-        if (!walletInfo?.address) {
-          await autoConnectWallet(); 
+       if (!walletInfo?.address) {
+        await autoConnectWallet(); 
 
-          if (!walletInfo?.address) {
-            alert("Please connect MetaMask before creating a contract.");
-            setLoading(false);
-            return;
-          }
+        if (!walletInfo?.address) {
+          alert("Please connect MetaMask before creating a contract.");
+          setLoading(false);
+          return;
         }
+      }
 
         const borrower = walletInfo.address;
         const duration = Number(formData.duration);
@@ -209,48 +227,25 @@ export default function ContractForm({ onSubmit, onCancel, diamonds }) {
 
       const contractData = {
         ...formData,
-        // Map diamond_id to diamondId for the backend
-        diamondId: formData.diamond_id,
         price: (formData.type === 'Buy' || formData.type === 'Sell') ? formData.price : null,
-        // For MemoFrom: buyer_email is the 'To' email, seller_email is current user
-        // For Buy/Sell: keep the original logic
-        buyer_email: formData.type === 'Buy' ? formData.buyer_email : 
-                    formData.type === 'MemoFrom' ? formData.buyer_email : 
-                    formData.type === 'Sell' ? formData.buyer_email : null,
-        seller_email: formData.type === 'Sell' ? formData.buyer_email : 
-                     formData.type === 'MemoFrom' ? formData.seller_email : 
-                     formData.type === 'Buy' ? formData.buyer_email : null,
+        buyer_email: formData.type === 'Buy' || formData.type === 'MemoFrom' ? formData.buyer_email : null,
+        seller_email: formData.type === 'Sell' || formData.type === 'MemoTo' ? formData.seller_email : null,
         blockchain_enabled: true,
-        wallet_address: walletInfo?.address,
-        // Remove the frontend-only field
-        diamond_id: undefined
+        wallet_address: walletInfo?.address
       };
 
       console.log("Sending contract to backend:", contractData);
-      const result = await onSubmit(contractData);
-      
-      if (result && result.error) {
-        throw new Error(result.error);
-      }
+      await onSubmit(contractData);
 
+      //setOpen(false);
       toast.success("Contract created successfully");
     } catch (error) {
       console.error("Error submitting contract:", error);
-      
-      // Better error handling
-      let errorMessage = "Failed to create contract. Please try again.";
-      
       if (error.code === 4001) {
-        errorMessage = "MetaMask: Transaction was cancelled by user.";
-      } else if (error.message) {
-        errorMessage = error.message;
+        alert("MetaMask: action canceled by user.");
+      } else {
+        alert("Failed to create contract. Please try again.");
       }
-      
-      // Show error to user
-      toast.error(errorMessage);
-      
-      // Don't close the dialog on error so user can try again
-      return;
     } finally {
       setLoading(false);
     }
@@ -268,7 +263,7 @@ export default function ContractForm({ onSubmit, onCancel, diamonds }) {
         <DialogHeader>
           <DialogTitle>Create New Contract</DialogTitle>
           <DialogDescription>
-            Set up a new contract for lending, buying, or selling diamonds.
+            Set up a new contract for borrowing, lending, buying, or selling diamonds.
           </DialogDescription>
         </DialogHeader>
 
@@ -317,64 +312,26 @@ export default function ContractForm({ onSubmit, onCancel, diamonds }) {
               </Select>
             </div>
 
-            {/* To Email (for MemoFrom and Sell) */}
-            {(formData.type === 'MemoFrom' || formData.type === 'Sell') && (
-              <div>
-                <Label htmlFor="to_email">
-                  To (Email)
-                </Label>
-                <Input
-                  id="to_email"
-                  type="email"
-                  required
-                  value={formData.buyer_email}
-                  onChange={(e) => handleChange('buyer_email', e.target.value)}
-                  placeholder="Enter recipient email address"
-                  className={emailError ? 'border-red-500' : ''}
-                />
-                {emailError && (
-                  <p className="text-sm text-red-500 mt-1">{emailError}</p>
-                )}
-              </div>
-            )}
-
-            {/* From Email (for Buy) */}
-            {formData.type === 'Buy' && (
-              <div>
-                <Label htmlFor="from_email">
-                  From (Email)
-                </Label>
-                <Input
-                  id="from_email"
-                  type="email"
-                  required
-                  value={formData.buyer_email}
-                  onChange={(e) => handleChange('buyer_email', e.target.value)}
-                  placeholder="Enter seller email address"
-                  className={emailError ? 'border-red-500' : ''}
-                />
-                {emailError && (
-                  <p className="text-sm text-red-500 mt-1">{emailError}</p>
-                )}
-              </div>
-            )}
-
-            {/* Current User Email Display (for MemoFrom) */}
-            {isMemoFromContract && (
-              <div>
-                <Label htmlFor="from_email_display">
-                  From (Your Email)
-                </Label>
-                <Input
-                  id="from_email_display"
-                  type="email"
-                  value={formData.seller_email}
-                  disabled
-                  className="bg-gray-50"
-                />
-                <p className="text-sm text-gray-500 mt-1">This is automatically filled with your email</p>
-              </div>
-            )}
+            {/* Counterparty Email */}
+            <div>
+              <Label htmlFor="counterparty">
+                {formData.type === 'Buy' 
+                  ? "From (Email)" 
+                  : "To (Email)"}
+              </Label>
+              <Input
+                id="counterparty"
+                type="email"
+                required
+                value={formData.buyer_email}
+                onChange={(e) => handleChange('buyer_email', e.target.value)}
+                placeholder="Enter email address"
+                className={emailError ? 'border-red-500' : ''}
+              />
+              {emailError && (
+                <p className="text-sm text-red-500 mt-1">{emailError}</p>
+              )}
+            </div>
 
             {/* Price for Buy/Sell */}
             {(formData.type === 'Buy' || formData.type === 'Sell') && (
@@ -447,8 +404,7 @@ export default function ContractForm({ onSubmit, onCancel, diamonds }) {
               disabled={
                 loading || 
                 !formData.diamond_id || 
-                !formData.buyer_email ||
-                (isMemoFromContract && !formData.seller_email)
+                !formData.buyer_email
               }
             >
               {loading ? (
@@ -457,7 +413,10 @@ export default function ContractForm({ onSubmit, onCancel, diamonds }) {
                   Creating Contract...
                 </>
               ) : (
-                'Create Contract'
+                <>
+                  Create Contract
+                  {/* {/* {useBlockchain && Link className="ml-2 h-4 w-4" />} } */}
+                </>
               )}
             </Button>
           </div>

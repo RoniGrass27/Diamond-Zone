@@ -171,127 +171,168 @@ app.post('/api/contracts', protect, async (req, res) => {
   try {
     console.log('=== Creating Contract ===');
     console.log('User:', req.user.email);
-    console.log('Request body:', req.body);
+    console.log('Request body:', JSON.stringify(req.body, null, 2));
     
+    // Get contract number
     const contractNumber = await getNextContractNumber();
 
-    // Process the contract data based on type
-    let contractData = {
-      ...req.body,
-      contractNumber,
-      ownerId: req.user._id
-    };
-
-    // Ensure diamondId is set correctly
-    if (!contractData.diamondId && contractData.diamond_id) {
-      contractData.diamondId = contractData.diamond_id;
-    }
-    
-    // Remove any frontend-only fields
-    delete contractData.diamond_id;
-
-    // Handle email assignments based on contract type
-    if (contractData.type === 'MemoFrom') {
-      // For MemoFrom: current user is seller (from), buyer_email is the recipient (to)
-      contractData.sellerEmail = req.user.email; // Auto-fill with current user's email
-      contractData.buyerEmail = contractData.buyer_email; // The 'to' email
-    } else if (contractData.type === 'Buy') {
-      // For Buy: current user is buyer, buyer_email contains seller's email
-      contractData.buyerEmail = req.user.email;
-      contractData.sellerEmail = contractData.buyer_email; // The seller's email
-    } else if (contractData.type === 'Sell') {
-      // For Sell: current user is seller, buyer_email contains buyer's email
-      contractData.sellerEmail = req.user.email;
-      contractData.buyerEmail = contractData.buyer_email; // The buyer's email
-    }
-
-    // Remove the temporary buyer_email field
-    delete contractData.buyer_email;
-    
-    // Validate required fields
-    if (!contractData.diamondId) {
+    // Validate diamond ID first
+    let diamondId = req.body.diamondId || req.body.diamond_id;
+    if (!diamondId) {
+      console.log('❌ Missing diamond ID');
       return res.status(400).json({ error: 'Diamond ID is required' });
     }
-    if (!contractData.buyerEmail || !contractData.sellerEmail) {
-      return res.status(400).json({ error: 'Both buyer and seller emails are required' });
-    }
-    
-    console.log('Processed contract data:', contractData);
-    
-    const contract = new Contract(contractData);
-    
-    await contract.save();
-    console.log('Contract saved:', contract._id);
-    console.log('Contract data:', {
-      contractNumber: contract.contractNumber,
-      type: contract.type,
-      buyerEmail: contract.buyerEmail,
-      sellerEmail: contract.sellerEmail,
-      diamondId: contract.diamondId,
-      ownerId: contract.ownerId
-    });
 
-    // Create message notification for the recipient
+    // Verify diamond exists and user owns it
+    const diamond = await Diamond.findOne({ 
+      _id: diamondId, 
+      ownerId: req.user._id 
+    });
+    
+    if (!diamond) {
+      console.log('❌ Diamond not found or not owned by user');
+      return res.status(400).json({ error: 'Diamond not found or you do not own this diamond' });
+    }
+
+    console.log('✅ Diamond found:', diamond.diamondNumber);
+
+    // Validate and set emails based on contract type
+    let buyerEmail, sellerEmail;
+    
+    if (req.body.type === 'MemoFrom') {
+      // MemoFrom: user is sender, buyer_email is recipient
+      sellerEmail = req.user.email;
+      buyerEmail = req.body.buyer_email;
+      
+    } else if (req.body.type === 'Buy') {
+      // Buy: user is buyer, buyer_email is seller
+      buyerEmail = req.user.email;
+      sellerEmail = req.body.buyer_email;
+      
+    } else if (req.body.type === 'Sell') {
+      // Sell: user is seller, buyer_email is buyer
+      sellerEmail = req.user.email;
+      buyerEmail = req.body.buyer_email;
+      
+    } else {
+      return res.status(400).json({ error: 'Invalid contract type' });
+    }
+
+    // Validate emails
+    if (!buyerEmail || !sellerEmail) {
+      console.log('❌ Missing emails:', { buyerEmail, sellerEmail });
+      return res.status(400).json({ 
+        error: 'Both buyer and seller emails are required',
+        debug: { buyerEmail, sellerEmail, originalBuyerEmail: req.body.buyer_email }
+      });
+    }
+
+    // Email format validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(buyerEmail) || !emailRegex.test(sellerEmail)) {
+      return res.status(400).json({ error: 'Invalid email format' });
+    }
+
+    console.log('✅ Emails validated:', { buyerEmail, sellerEmail });
+
+    // Build contract data
+    const contractData = {
+      type: req.body.type,
+      diamondId: diamondId,
+      ownerId: req.user._id,
+      buyerEmail: buyerEmail,
+      sellerEmail: sellerEmail,
+      contractNumber: contractNumber,
+      status: 'pending',
+      createdDate: new Date(),
+      expirationDate: req.body.expiration_date ? new Date(req.body.expiration_date) : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      blockchain_enabled: req.body.blockchain_enabled || false,
+      wallet_address: req.body.wallet_address || null
+    };
+
+    // Add type-specific fields
+    if (req.body.type === 'MemoFrom') {
+      contractData.duration = req.body.duration || 30;
+      contractData.terms = req.body.terms || '';
+    }
+
+    if (req.body.type === 'Buy' || req.body.type === 'Sell') {
+      if (!req.body.price || req.body.price <= 0) {
+        return res.status(400).json({ error: 'Valid price is required for Buy/Sell contracts' });
+      }
+      contractData.price = req.body.price;
+    }
+
+    console.log('✅ Final contract data:', JSON.stringify(contractData, null, 2));
+
+    // Create and save contract
+    const contract = new Contract(contractData);
+    await contract.save();
+    
+    console.log('✅ Contract saved with ID:', contract._id);
+    console.log('✅ Contract number:', contract.contractNumber);
+
+    // Create notification message
     try {
       let recipientEmail = null;
       
       if (contract.type === 'MemoFrom') {
-        recipientEmail = contract.buyerEmail; // Send to the 'to' email
+        recipientEmail = contract.buyerEmail; // Send to recipient
       } else if (contract.type === 'Buy') {
-        recipientEmail = contract.sellerEmail; // Send to the seller
+        recipientEmail = contract.sellerEmail; // Send to seller
       } else if (contract.type === 'Sell') {
-        recipientEmail = contract.buyerEmail; // Send to the buyer
+        recipientEmail = contract.buyerEmail; // Send to buyer
       }
       
-      console.log('Recipient email:', recipientEmail);
-      console.log('Sender email:', req.user.email);
-      
       if (recipientEmail && recipientEmail !== req.user.email) {
-        console.log('Creating message for recipient...');
+        console.log('📧 Creating notification for:', recipientEmail);
         
-        const diamond = await Diamond.findById(contract.diamondId);
-        console.log('Diamond found:', diamond ? `#${diamond.diamondNumber}` : 'Not found');
-        
-        const messageResult = await createContractRequestMessage(
+        await createContractRequestMessage(
           req.user._id,
           recipientEmail,
           contract._id,
           {
             type: contract.type,
-            diamondNumber: diamond?.diamondNumber,
-            diamondId: diamond?._id,
+            diamondNumber: diamond.diamondNumber,
+            diamondId: diamond._id,
             price: contract.price,
             expirationDate: contract.expirationDate,
             duration: contract.duration,
             terms: contract.terms
           }
         );
-        console.log('Message created successfully:', messageResult._id);
+        
+        console.log('✅ Notification message created');
       } else {
-        console.log('No recipient email or same as sender, skipping message');
+        console.log('ℹ️ No notification needed (same user or missing email)');
       }
     } catch (messageError) {
-      console.error('Error creating contract notification:', messageError);
-      // Don't fail the contract creation if messaging fails
+      console.error('⚠️ Message creation failed (but contract was created):', messageError);
     }
 
-    res.status(201).json(contract);
-  } catch (error) {
-    console.error("Error creating contract:", error);
+    res.status(201).json({
+      success: true,
+      contract: contract
+    });
     
-    // Send more detailed error information
+  } catch (error) {
+    console.error("❌ Error creating contract:", error);
+    
     if (error.name === 'ValidationError') {
       const messages = Object.values(error.errors).map(val => val.message);
       return res.status(400).json({ 
-        error: 'Validation failed', 
-        details: messages,
-        fields: Object.keys(error.errors)
+        error: 'Contract validation failed', 
+        details: messages
       });
     }
     
+    if (error.code === 11000) {
+      return res.status(400).json({ error: 'Duplicate contract number' });
+    }
+    
     res.status(500).json({ 
-      error: error.message,
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      error: 'Server error creating contract',
+      message: error.message
     });
   }
 });
@@ -511,6 +552,27 @@ app.post('/api/debug/create-test-message', protect, async (req, res) => {
     console.error('Test message creation error:', error);
     res.status(500).json({ error: error.message });
   }
+});
+
+app.post('/api/debug-contract-data', protect, async (req, res) => {
+  console.log('=== DEBUG CONTRACT DATA ===');
+  console.log('User:', req.user.email);
+  console.log('Headers:', req.headers);
+  console.log('Body keys:', Object.keys(req.body));
+  console.log('Full body:', JSON.stringify(req.body, null, 2));
+  
+  res.json({
+    success: true,
+    debug: {
+      userEmail: req.user.email,
+      bodyKeys: Object.keys(req.body),
+      body: req.body,
+      hasBuyerEmail: !!req.body.buyer_email,
+      buyerEmailValue: req.body.buyer_email,
+      hasSellerEmail: !!req.body.seller_email,
+      sellerEmailValue: req.body.seller_email
+    }
+  });
 });
 // End of debugging
 
