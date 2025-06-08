@@ -151,6 +151,7 @@ export default function ContractsPage() {
   };
 
   const viewContractDetails = (contract) => {
+    console.log('Opening contract details for:', contract);
     setSelectedContract(contract);
     setShowDetailDialog(true);
   };
@@ -260,6 +261,14 @@ export default function ContractsPage() {
     }
   };
 
+  const handleRowClick = (contract, event) => {
+    // Prevent row click when clicking on action buttons
+    if (event.target.closest('button')) {
+      return;
+    }
+    viewContractDetails(contract);
+  };
+
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
@@ -326,7 +335,7 @@ export default function ContractsPage() {
                       <tr 
                         key={contract.id} 
                         className="border-b hover:bg-gray-50 cursor-pointer"
-                        onClick={() => viewContractDetails(contract)}
+                        onClick={(e) => handleRowClick(contract, e)}
                       >
                         <td className="py-3 px-4 font-medium">
                           #{String(contract.contractNumber).padStart(3, '0')}
@@ -395,6 +404,7 @@ export default function ContractsPage() {
                                 viewContractDetails(contract);
                               }}
                               title="View Details"
+                              className="hover:bg-blue-50"
                             >
                               <Eye className="h-4 w-4" />
                             </Button>
@@ -406,6 +416,7 @@ export default function ContractsPage() {
                                 viewQrCode(contract);
                               }}
                               title="View QR Code"
+                              className="hover:bg-gray-50"
                             >
                               <QrCode className="h-4 w-4" />
                             </Button>

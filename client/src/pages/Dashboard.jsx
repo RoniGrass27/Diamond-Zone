@@ -14,7 +14,8 @@ import {
   X,
   Eye,
   ExternalLink,
-  User as UserIcon
+  User as UserIcon,
+  QrCode
 } from "lucide-react";
 import {
   Dialog,
@@ -27,6 +28,9 @@ import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { format } from "date-fns";
 
+// Import the QR Code Dialog component
+import QRCodeDialog from "@/components/contracts/QRCodeDialog";
+
 export default function Dashboard() {
   const [diamonds, setDiamonds] = useState([]);
   const [contracts, setContracts] = useState([]);
@@ -35,6 +39,8 @@ export default function Dashboard() {
   const [userData, setUserData] = useState(null);
   const [selectedMessage, setSelectedMessage] = useState(null);
   const [showMessageDetail, setShowMessageDetail] = useState(false);
+  const [showQrDialog, setShowQrDialog] = useState(false);
+  const [selectedContract, setSelectedContract] = useState(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -276,6 +282,17 @@ export default function Dashboard() {
     }
     
     return null;
+  };
+
+  // Function to find and show QR code for a contract
+  const showQrCode = (message) => {
+    if (message.contractId) {
+      const contract = contracts.find(c => c._id === message.contractId._id || c._id === message.contractId);
+      if (contract) {
+        setSelectedContract(contract);
+        setShowQrDialog(true);
+      }
+    }
   };
 
   // Safe calculations with fallbacks
@@ -591,6 +608,20 @@ export default function Dashboard() {
                 </div>
               )}
 
+              {/* QR Code Button */}
+              {selectedMessage.contractId && (
+                <div className="flex justify-center pt-2 border-t">
+                  <Button
+                    variant="outline"
+                    onClick={() => showQrCode(selectedMessage)}
+                    className="flex items-center gap-2"
+                  >
+                    <QrCode className="h-4 w-4" />
+                    View Contract QR Code
+                  </Button>
+                </div>
+              )}
+
               {selectedMessage.isActionRequired && selectedMessage.actionType === 'approve_contract' && selectedMessage.contractId && getContractStatus(selectedMessage) === 'pending' && (
                 <div className="flex gap-3 pt-4 border-t">
                   <Button
@@ -614,6 +645,14 @@ export default function Dashboard() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* QR Code Dialog */}
+      <QRCodeDialog
+        contract={selectedContract}
+        open={showQrDialog}
+        onOpenChange={setShowQrDialog}
+        diamonds={diamonds}
+      />
     </div>
   );
 }
