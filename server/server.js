@@ -200,20 +200,14 @@ app.post('/api/contracts', protect, async (req, res) => {
     let buyerEmail, sellerEmail;
     
     if (req.body.type === 'MemoFrom') {
-      // MemoFrom: user is sender, buyer_email is recipient
       buyerEmail = req.body.buyerEmail || req.body.buyer_email;
       sellerEmail = req.body.sellerEmail || req.body.seller_email;
-      
     } else if (req.body.type === 'Buy') {
-      // Buy: user is buyer, buyer_email is seller
       buyerEmail = req.user.email;
       sellerEmail = req.body.buyer_email;
-      
     } else if (req.body.type === 'Sell') {
-      // Sell: user is seller, buyer_email is buyer
       sellerEmail = req.user.email;
       buyerEmail = req.body.buyer_email;
-      
     } else {
       return res.status(400).json({ error: 'Invalid contract type' });
     }
@@ -235,10 +229,24 @@ app.post('/api/contracts', protect, async (req, res) => {
 
     console.log('✅ Emails validated:', { buyerEmail, sellerEmail });
 
-    // Build contract data
+    // Build contract data with embedded diamond information
     const contractData = {
       type: req.body.type,
       diamondId: diamondId,
+      // Store diamond information directly in the contract
+      diamondInfo: {
+        diamondNumber: diamond.diamondNumber,
+        carat: diamond.carat,
+        shape: diamond.shape,
+        color: diamond.color,
+        clarity: diamond.clarity,
+        cut: diamond.cut,
+        polish: diamond.polish,
+        symmetry: diamond.symmetry,
+        uv: diamond.uv,
+        price: diamond.price,
+        status: diamond.status
+      },
       ownerId: req.user._id,
       buyerEmail: buyerEmail,
       sellerEmail: sellerEmail,
@@ -277,11 +285,11 @@ app.post('/api/contracts', protect, async (req, res) => {
       let recipientEmail = null;
       
       if (contract.type === 'MemoFrom') {
-        recipientEmail = contract.buyerEmail; // Send to recipient
+        recipientEmail = contract.buyerEmail;
       } else if (contract.type === 'Buy') {
-        recipientEmail = contract.sellerEmail; // Send to seller
+        recipientEmail = contract.sellerEmail;
       } else if (contract.type === 'Sell') {
-        recipientEmail = contract.buyerEmail; // Send to buyer
+        recipientEmail = contract.buyerEmail;
       }
       
       if (recipientEmail && recipientEmail !== req.user.email) {

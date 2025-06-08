@@ -12,8 +12,17 @@ import {
   Clock,
   CheckCircle,
   X,
-  Eye
+  Eye,
+  ExternalLink,
+  User as UserIcon
 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { format } from "date-fns";
@@ -21,9 +30,11 @@ import { format } from "date-fns";
 export default function Dashboard() {
   const [diamonds, setDiamonds] = useState([]);
   const [contracts, setContracts] = useState([]);
-  const [messages, setMessages] = useState([]); // Initialize as empty array
+  const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [userData, setUserData] = useState(null);
+  const [selectedMessage, setSelectedMessage] = useState(null);
+  const [showMessageDetail, setShowMessageDetail] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -40,16 +51,14 @@ export default function Dashboard() {
           User.me()
         ]);
         
-        setDiamonds(diamondsData || []); // Ensure it's always an array
-        setContracts(contractsData || []); // Ensure it's always an array
+        setDiamonds(diamondsData || []);
+        setContracts(contractsData || []);
         setUserData(user);
 
-        // Fetch messages separately with error handling
         try {
           const messagesResponse = await fetch('/api/messages', { headers });
           if (messagesResponse.ok) {
             const messagesResult = await messagesResponse.json();
-            // Handle different response formats
             const messagesData = messagesResult.messages || messagesResult || [];
             setMessages(Array.isArray(messagesData) ? messagesData : []);
           } else {
@@ -63,7 +72,6 @@ export default function Dashboard() {
 
       } catch (error) {
         console.error("Error fetching data:", error);
-        // Set empty arrays on error to prevent crashes
         setDiamonds([]);
         setContracts([]);
         setMessages([]);
@@ -87,7 +95,6 @@ export default function Dashboard() {
       });
 
       if (response.ok) {
-        // Mark message as read and update local state
         await fetch(`/api/messages/${messageId}/read`, {
           method: 'POST',
           headers: {
@@ -96,15 +103,16 @@ export default function Dashboard() {
           }
         });
 
-        // Refresh data
-        const [updatedContracts] = await Promise.all([
-          Contract.list()
+        const [updatedContracts, updatedMessages] = await Promise.all([
+          Contract.list(),
+          fetchMessages()
         ]);
 
         setContracts(updatedContracts || []);
+        setMessages(updatedMessages || []);
         
-        // Update message locally
-        setMessages(prev => prev.filter(msg => msg._id !== messageId));
+        // Close detail dialog if open
+        setShowMessageDetail(false);
       }
     } catch (error) {
       console.error('Error approving contract:', error);
@@ -123,7 +131,6 @@ export default function Dashboard() {
       });
 
       if (response.ok) {
-        // Mark message as read and update local state
         await fetch(`/api/messages/${messageId}/read`, {
           method: 'POST',
           headers: {
@@ -132,18 +139,40 @@ export default function Dashboard() {
           }
         });
 
-        // Refresh data
-        const [updatedContracts] = await Promise.all([
-          Contract.list()
+        const [updatedContracts, updatedMessages] = await Promise.all([
+          Contract.list(),
+          fetchMessages()
         ]);
 
         setContracts(updatedContracts || []);
+        setMessages(updatedMessages || []);
         
-        // Update message locally
-        setMessages(prev => prev.filter(msg => msg._id !== messageId));
+        // Close detail dialog if open
+        setShowMessageDetail(false);
       }
     } catch (error) {
       console.error('Error rejecting contract:', error);
+    }
+  };
+
+  const fetchMessages = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('/api/messages', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        return result.messages || result || [];
+      }
+      return [];
+    } catch (error) {
+      console.error('Error fetching messages:', error);
+      return [];
     }
   };
 
@@ -151,12 +180,11 @@ export default function Dashboard() {
     if (message.type === 'contract_request') {
       let baseContent = message.content;
       
-      // Add additional details based on contract type
       if (message.metadata?.contractType === 'MemoFrom') {
         if (message.metadata?.duration) {
           baseContent += ` (${message.metadata.duration} days)`;
         }
-        if (message.metadata?.terms) {
+        if (message.metadata?.terms && message.metadata.terms.trim() !== '' && message.metadata.terms !== 'Standard terms apply.') {
           baseContent += `. Terms: ${message.metadata.terms.substring(0, 50)}${message.metadata.terms.length > 50 ? '...' : ''}`;
         }
       } else if (message.metadata?.price) {
@@ -180,13 +208,74 @@ export default function Dashboard() {
         }
       });
 
-      // Update local state
       setMessages(prev => prev.map(msg => 
         msg._id === messageId ? { ...msg, isRead: true, readAt: new Date() } : msg
       ));
     } catch (error) {
       console.error('Error marking message as read:', error);
     }
+  };
+
+  const openMessageDetail = (message) => {
+    setSelectedMessage(message);
+    setShowMessageDetail(true);
+    
+    // Mark as read when opening
+    if (!message.isRead) {
+      handleMarkAsRead(message._id);
+    }
+  };
+
+  const getContractStatus = (message) => {
+    if (!message.contractId) return null;
+    
+    // Find the contract status
+    const contract = contracts.find(c => c._id === message.contractId._id || c._id === message.contractId);
+    return contract?.status || null;
+  };
+
+  const getMessageStatusColor = (message) => {
+    const contractStatus = getContractStatus(message);
+    
+    if (contractStatus === 'approved') {
+      return 'border-l-green-500 bg-green-50';
+    } else if (contractStatus === 'rejected') {
+      return 'border-l-red-500 bg-red-50';
+    } else if (message.metadata?.priority === 'high') {
+      return 'border-l-blue-500 bg-blue-50';
+    } else if (message.metadata?.priority === 'medium') {
+      return 'border-l-yellow-500 bg-yellow-50';
+    } else {
+      return 'border-l-gray-500 bg-gray-50';
+    }
+  };
+
+  const getStatusBadge = (message) => {
+    const contractStatus = getContractStatus(message);
+    
+    if (contractStatus === 'approved') {
+      return (
+        <Badge className="bg-green-100 text-green-800 border-green-200">
+          <CheckCircle className="h-3 w-3 mr-1" />
+          Approved
+        </Badge>
+      );
+    } else if (contractStatus === 'rejected') {
+      return (
+        <Badge className="bg-red-100 text-red-800 border-red-200">
+          <X className="h-3 w-3 mr-1" />
+          Rejected
+        </Badge>
+      );
+    } else if (message.isActionRequired && !message.isRead) {
+      return (
+        <Badge className="bg-blue-100 text-blue-800 border-blue-200">
+          Action Required
+        </Badge>
+      );
+    }
+    
+    return null;
   };
 
   // Safe calculations with fallbacks
@@ -202,19 +291,6 @@ export default function Dashboard() {
         return <DollarSign className="h-5 w-5 text-green-500" />;
       default:
         return <MessageSquare className="h-5 w-5 text-gray-500" />;
-    }
-  };
-
-  const getPriorityColor = (priority) => {
-    switch (priority) {
-      case 'high':
-        return 'border-l-red-500 bg-red-50';
-      case 'medium':
-        return 'border-l-yellow-500 bg-yellow-50';
-      case 'low':
-        return 'border-l-green-500 bg-green-50';
-      default:
-        return 'border-l-gray-500 bg-gray-50';
     }
   };
 
@@ -314,24 +390,26 @@ export default function Dashboard() {
                 messages.slice(0, 5).map((message) => (
                   <div 
                     key={message._id} 
-                    className={`p-4 border-l-4 rounded-lg ${getPriorityColor(message.metadata?.priority)} ${
+                    className={`p-4 border-l-4 rounded-lg cursor-pointer hover:shadow-md transition-shadow ${getMessageStatusColor(message)} ${
                       !message.isRead ? 'ring-2 ring-blue-200' : ''
                     }`}
+                    onClick={() => openMessageDetail(message)}
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex items-start gap-3 flex-1">
                         {getMessageIcon(message.type)}
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
+                          <div className="flex items-center gap-2 mb-1 flex-wrap">
                             <h4 className={`text-sm font-medium ${!message.isRead ? 'font-bold' : ''}`}>
                               {message.title}
                             </h4>
                             {!message.isRead && (
                               <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
                             )}
+                            {getStatusBadge(message)}
                           </div>
-                          <p className="text-sm text-gray-600 mb-2">{formatMessageContent(message)}</p>
-                          <div className="flex items-center gap-2 text-xs text-gray-500">
+                          <p className="text-sm text-gray-600 mb-2 line-clamp-2">{formatMessageContent(message)}</p>
+                          <div className="flex items-center gap-2 text-xs text-gray-500 flex-wrap">
                             <Clock className="h-3 w-3" />
                             {format(new Date(message.createdAt), 'MMM d, HH:mm')}
                             {message.metadata?.contractType && (
@@ -352,23 +430,32 @@ export default function Dashboard() {
                         </div>
                       </div>
                       
-                      {!message.isRead && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleMarkAsRead(message._id)}
-                          className="ml-2"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                      )}
+                      <div className="flex items-center gap-2 ml-2">
+                        {!message.isRead && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleMarkAsRead(message._id);
+                            }}
+                            className="p-1"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        )}
+                        <ExternalLink className="h-4 w-4 text-gray-400" />
+                      </div>
                     </div>
 
-                    {message.isActionRequired && message.actionType === 'approve_contract' && !message.isRead && message.contractId && (
+                    {message.isActionRequired && message.actionType === 'approve_contract' && !message.isRead && message.contractId && getContractStatus(message) === 'pending' && (
                       <div className="flex gap-2 mt-3 pt-3 border-t">
                         <Button
                           size="sm"
-                          onClick={() => handleApproveContract(message._id, message.contractId._id || message.contractId)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleApproveContract(message._id, message.contractId._id || message.contractId);
+                          }}
                           className="bg-green-600 hover:bg-green-700 text-white"
                         >
                           <CheckCircle className="h-4 w-4 mr-1" />
@@ -377,18 +464,15 @@ export default function Dashboard() {
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => handleRejectContract(message._id, message.contractId._id || message.contractId)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRejectContract(message._id, message.contractId._id || message.contractId);
+                          }}
                           className="border-red-300 text-red-600 hover:bg-red-50"
                         >
                           <X className="h-4 w-4 mr-1" />
                           Reject
                         </Button>
-                      </div>
-                    )}
-                    
-                    {message.isActionRequired && message.actionType === 'approve_contract' && !message.isRead && !message.contractId && (
-                      <div className="mt-3 pt-3 border-t">
-                        <p className="text-sm text-red-600">⚠️ Contract reference missing - please contact support</p>
                       </div>
                     )}
                   </div>
@@ -434,6 +518,102 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Message Detail Dialog */}
+      <Dialog open={showMessageDetail} onOpenChange={setShowMessageDetail}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {selectedMessage && getMessageIcon(selectedMessage.type)}
+              {selectedMessage?.title}
+              {selectedMessage && getStatusBadge(selectedMessage)}
+            </DialogTitle>
+            <DialogDescription>
+              {selectedMessage && format(new Date(selectedMessage.createdAt), 'MMM d, yyyy at HH:mm')}
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedMessage && (
+            <div className="space-y-4">
+              <div className="p-4 bg-gray-50 rounded-lg">
+                <h4 className="font-medium mb-2">Message Details</h4>
+                <p className="text-sm text-gray-700 mb-3">{formatMessageContent(selectedMessage)}</p>
+                
+                {selectedMessage.fromUser && (
+                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <UserIcon className="h-4 w-4" />
+                    <span>From: {selectedMessage.fromUser.fullName || selectedMessage.fromUser.businessName} ({selectedMessage.fromUser.email})</span>
+                  </div>
+                )}
+              </div>
+
+              {selectedMessage.metadata && (
+                <div className="p-4 border rounded-lg">
+                  <h4 className="font-medium mb-3">Contract Information</h4>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    {selectedMessage.metadata.contractType && (
+                      <div>
+                        <span className="text-gray-500">Type:</span>
+                        <span className="ml-2 font-medium">{selectedMessage.metadata.contractType}</span>
+                      </div>
+                    )}
+                    {selectedMessage.metadata.diamondNumber && (
+                      <div>
+                        <span className="text-gray-500">Diamond:</span>
+                        <span className="ml-2 font-medium">#{String(selectedMessage.metadata.diamondNumber).padStart(3, '0')}</span>
+                      </div>
+                    )}
+                    {selectedMessage.metadata.price && (
+                      <div>
+                        <span className="text-gray-500">Price:</span>
+                        <span className="ml-2 font-medium">${selectedMessage.metadata.price.toLocaleString()}</span>
+                      </div>
+                    )}
+                    {selectedMessage.metadata.duration && (
+                      <div>
+                        <span className="text-gray-500">Duration:</span>
+                        <span className="ml-2 font-medium">{selectedMessage.metadata.duration} days</span>
+                      </div>
+                    )}
+                    {selectedMessage.metadata.expirationDate && (
+                      <div className="col-span-2">
+                        <span className="text-gray-500">Expires:</span>
+                        <span className="ml-2 font-medium">{format(new Date(selectedMessage.metadata.expirationDate), 'MMM d, yyyy')}</span>
+                      </div>
+                    )}
+                    {selectedMessage.metadata.terms && selectedMessage.metadata.terms.trim() !== '' && selectedMessage.metadata.terms !== 'Standard terms apply.' && (
+                      <div className="col-span-2">
+                        <span className="text-gray-500">Terms:</span>
+                        <p className="mt-1 text-sm bg-gray-50 p-2 rounded">{selectedMessage.metadata.terms}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {selectedMessage.isActionRequired && selectedMessage.actionType === 'approve_contract' && selectedMessage.contractId && getContractStatus(selectedMessage) === 'pending' && (
+                <div className="flex gap-3 pt-4 border-t">
+                  <Button
+                    onClick={() => handleApproveContract(selectedMessage._id, selectedMessage.contractId._id || selectedMessage.contractId)}
+                    className="bg-green-600 hover:bg-green-700 text-white flex-1"
+                  >
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                    Approve Contract
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => handleRejectContract(selectedMessage._id, selectedMessage.contractId._id || selectedMessage.contractId)}
+                    className="border-red-300 text-red-600 hover:bg-red-50 flex-1"
+                  >
+                    <X className="h-4 w-4 mr-2" />
+                    Reject Contract
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
