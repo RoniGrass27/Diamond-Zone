@@ -27,6 +27,7 @@ import {
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { format } from "date-fns";
+import { formatCompactDate, formatDetailedDate } from "@/utils/dateUtils";
 
 // Import the QR Code Dialog component
 import QRCodeDialog from "@/components/contracts/QRCodeDialog";
@@ -428,7 +429,7 @@ export default function Dashboard() {
                           <p className="text-sm text-gray-600 mb-2 line-clamp-2">{formatMessageContent(message)}</p>
                           <div className="flex items-center gap-2 text-xs text-gray-500 flex-wrap">
                             <Clock className="h-3 w-3" />
-                            {format(new Date(message.createdAt), 'MMM d, HH:mm')}
+                            {formatCompactDate(message.createdAt)}
                             {message.metadata?.contractType && (
                               <>
                                 <span>•</span>
@@ -546,7 +547,7 @@ export default function Dashboard() {
               {selectedMessage && getStatusBadge(selectedMessage)}
             </DialogTitle>
             <DialogDescription>
-              {selectedMessage && format(new Date(selectedMessage.createdAt), 'MMM d, yyyy at HH:mm')}
+              {selectedMessage && formatDetailedDate(selectedMessage.createdAt)}
             </DialogDescription>
           </DialogHeader>
           
@@ -595,7 +596,7 @@ export default function Dashboard() {
                     {selectedMessage.metadata.expirationDate && (
                       <div className="col-span-2">
                         <span className="text-gray-500">Expires:</span>
-                        <span className="ml-2 font-medium">{format(new Date(selectedMessage.metadata.expirationDate), 'MMM d, yyyy')}</span>
+                        <span className="ml-2 font-medium">{formatDetailedDate(selectedMessage.metadata.expirationDate)}</span>
                       </div>
                     )}
                     {selectedMessage.metadata.terms && selectedMessage.metadata.terms.trim() !== '' && selectedMessage.metadata.terms !== 'Standard terms apply.' && (

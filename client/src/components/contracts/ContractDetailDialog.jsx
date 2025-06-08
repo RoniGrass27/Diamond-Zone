@@ -20,6 +20,7 @@ import {
   AlertCircle
 } from "lucide-react";
 import { format, isValid, parseISO } from "date-fns";
+import { formatContractDate, isExpiringSoon } from "@/utils/dateUtils";
 
 export default function ContractDetailDialog({ 
   contract, 
@@ -32,30 +33,10 @@ export default function ContractDetailDialog({
 }) {
   if (!contract) return null;
 
-  // Helper function to safely format dates
-  const formatDate = (dateValue) => {
-    if (!dateValue) return '—';
-    
-    let date;
-    if (typeof dateValue === 'string') {
-      date = parseISO(dateValue);
-    } else if (dateValue instanceof Date) {
-      date = dateValue;
-    } else {
-      return '—';
-    }
-    
-    if (!isValid(date)) {
-      return 'Invalid Date';
-    }
-    
-    try {
-      return format(date, 'MMM d, yyyy');
-    } catch (error) {
-      console.error('Date formatting error:', error);
-      return 'Invalid Date';
-    }
-  };
+// Helper function to safely format dates
+const formatDate = (dateValue) => {
+    return formatContractDate(dateValue);
+};
 
   const getUserFullName = (email) => {
     const user = users.find(u => u.email === email);
@@ -189,25 +170,10 @@ export default function ContractDetailDialog({
     }
   };
 
-  // Check if expiration is soon
-  const isExpiringSoon = () => {
-    if (!contract.expirationDate) return false;
-    
-    try {
-      const expirationDate = typeof contract.expirationDate === 'string' 
-        ? parseISO(contract.expirationDate) 
-        : contract.expirationDate;
-      
-      if (!isValid(expirationDate)) return false;
-      
-      const warningDate = new Date();
-      warningDate.setDate(warningDate.getDate() + 5);
-      
-      return expirationDate < warningDate;
-    } catch (error) {
-      return false;
-    }
-  };
+// Check if expiration is soon
+const checkExpiringSoon = (expirationDate) => {
+  return isExpiringSoon(expirationDate);
+};
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -313,9 +279,9 @@ export default function ContractDetailDialog({
 
               <div>
                 <span className="text-gray-500">Expires:</span>
-                <span className={`ml-2 font-medium ${isExpiringSoon() ? 'text-red-600 font-semibold' : ''}`}>
+                <span className={`ml-2 font-medium ${checkExpiringSoon(contract.expirationDate) ? 'text-red-600 font-semibold' : ''}`}>
                   {formatDate(contract.expirationDate)}
-                  {isExpiringSoon() && (
+                  {checkExpiringSoon(contract.expirationDate) && (
                     <span className="ml-2 text-red-600 font-semibold">⚠️ Expiring Soon</span>
                   )}
                 </span>

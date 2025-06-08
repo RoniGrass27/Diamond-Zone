@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Search, Plus, QrCode, FileText, Clock, User as UserIcon, Eye } from "lucide-react";
 import { format } from "date-fns";
-
+import { formatContractDate, isExpiringSoon } from "@/utils/dateUtils";
 import ContractForm from "../components/contracts/ContractForm";
 import QRCodeDialog from "../components/contracts/QRCodeDialog";
 import ContractDetailDialog from "../components/contracts/ContractDetailDialog";
@@ -371,18 +371,18 @@ export default function ContractsPage() {
                           </div>
                         </td>
                         <td className="py-3 px-4 text-sm">
-                          {contract.createdDate ? format(new Date(contract.createdDate), 'MMM d, yyyy') : '—'}
+                          {formatContractDate(contract.createdDate)}
                         </td>
                         <td className="py-3 px-4 text-sm">
                           {contract.expirationDate ? (
                             <span
                               className={
-                                new Date(contract.expirationDate) < new Date(new Date().setDate(new Date().getDate() + 5))
+                                isExpiringSoon(contract.expirationDate)
                                   ? "text-red-600 font-semibold"
                                   : ""
                               }
                             >
-                              {format(new Date(contract.expirationDate), 'MMM d, yyyy')}
+                              {formatContractDate(contract.expirationDate)}
                             </span>
                           ) : '—'}
                         </td>
