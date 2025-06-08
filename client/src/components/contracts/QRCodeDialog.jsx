@@ -1,29 +1,71 @@
 import React from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { format } from "date-fns";
+import { format, isValid, parseISO } from "date-fns";
 
 export default function QRCodeDialog({ contract, open, onOpenChange, diamonds }) {
   if (!contract) return null;
 
   const diamond = diamonds.find(d => d.id === contract.diamond_id);
   
+  // Helper function to safely format dates
+  const formatDate = (dateValue) => {
+    if (!dateValue) return 'N/A';
+    
+    let date;
+    if (typeof dateValue === 'string') {
+      date = parseISO(dateValue);
+    } else if (dateValue instanceof Date) {
+      date = dateValue;
+    } else {
+      return 'N/A';
+    }
+    
+    if (!isValid(date)) {
+      return 'Invalid Date';
+    }
+    
+    try {
+      return format(date, 'MMM d, yyyy');
+    } catch (error) {
+      console.error('Date formatting error:', error);
+      return 'Invalid Date';
+    }
+  };
+
+  // Get diamond display name
+  const getDiamondName = () => {
+    if (contract.diamondInfo && contract.diamondInfo.diamondNumber) {
+      return `#${String(contract.diamondInfo.diamondNumber).padStart(3, '0')}`;
+    }
+    
+    if (contract.diamondId && contract.diamondId.diamondNumber) {
+      return `#${String(contract.diamondId.diamondNumber).padStart(3, '0')}`;
+    }
+    
+    if (diamond && diamond.diamondNumber) {
+      return `#${String(diamond.diamondNumber).padStart(3, '0')}`;
+    }
+    
+    return diamond?.name || 'Unknown Diamond';
+  };
+  
   // Generate QR code URL with contract data
   const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(
     JSON.stringify({
-      contract_number: contract.contract_number,
+      contract_number: contract.contractNumber || contract.contract_number,
       type: contract.type,
-      diamond: diamond?.name || 'Unknown Diamond',
+      diamond: getDiamondName(),
       status: contract.status,
-      created_date: contract.created_date,
-      expiration_date: contract.expiration_date
+      created_date: contract.createdDate || contract.created_date,
+      expiration_date: contract.expirationDate || contract.expiration_date
     })
   )}`;
 
   const handleDownload = () => {
     const link = document.createElement('a');
     link.href = qrCodeUrl;
-    link.download = `contract-${contract.contract_number}.png`;
+    link.download = `contract-${contract.contractNumber || contract.contract_number}.png`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -42,22 +84,28 @@ export default function QRCodeDialog({ contract, open, onOpenChange, diamonds })
           </div>
 
           <div className="text-center">
-            <h3 className="font-semibold text-lg">Contract #{contract.contract_number}</h3>
+            <h3 className="font-semibold text-lg">
+              Contract #{String(contract.contractNumber || contract.contract_number || '000').padStart(3, '0')}
+            </h3>
             <p className="text-gray-500">{contract.type} • {contract.status}</p>
           </div>
 
           <div className="w-full space-y-2 text-sm">
             <div className="flex justify-between py-2 border-b">
               <span className="text-gray-500">Diamond:</span>
-              <span className="font-medium">{diamond?.name || 'Unknown Diamond'}</span>
+              <span className="font-medium">{getDiamondName()}</span>
             </div>
             <div className="flex justify-between py-2 border-b">
               <span className="text-gray-500">Created:</span>
-              <span className="font-medium">{format(new Date(contract.created_date), 'MMM d, yyyy')}</span>
+              <span className="font-medium">
+                {formatDate(contract.createdDate || contract.created_date)}
+              </span>
             </div>
             <div className="flex justify-between py-2 border-b">
               <span className="text-gray-500">Expires:</span>
-              <span className="font-medium">{format(new Date(contract.expiration_date), 'MMM d, yyyy')}</span>
+              <span className="font-medium">
+                {formatDate(contract.expirationDate || contract.expiration_date)}
+              </span>
             </div>
           </div>
 

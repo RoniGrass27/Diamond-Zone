@@ -19,7 +19,7 @@ import {
   X,
   AlertCircle
 } from "lucide-react";
-import { format } from "date-fns";
+import { format, isValid, parseISO } from "date-fns";
 
 export default function ContractDetailDialog({ 
   contract, 
@@ -31,6 +31,31 @@ export default function ContractDetailDialog({
   users = []
 }) {
   if (!contract) return null;
+
+  // Helper function to safely format dates
+  const formatDate = (dateValue) => {
+    if (!dateValue) return '—';
+    
+    let date;
+    if (typeof dateValue === 'string') {
+      date = parseISO(dateValue);
+    } else if (dateValue instanceof Date) {
+      date = dateValue;
+    } else {
+      return '—';
+    }
+    
+    if (!isValid(date)) {
+      return 'Invalid Date';
+    }
+    
+    try {
+      return format(date, 'MMM d, yyyy');
+    } catch (error) {
+      console.error('Date formatting error:', error);
+      return 'Invalid Date';
+    }
+  };
 
   const getUserFullName = (email) => {
     const user = users.find(u => u.email === email);
@@ -164,20 +189,40 @@ export default function ContractDetailDialog({
     }
   };
 
+  // Check if expiration is soon
+  const isExpiringSoon = () => {
+    if (!contract.expirationDate) return false;
+    
+    try {
+      const expirationDate = typeof contract.expirationDate === 'string' 
+        ? parseISO(contract.expirationDate) 
+        : contract.expirationDate;
+      
+      if (!isValid(expirationDate)) return false;
+      
+      const warningDate = new Date();
+      warningDate.setDate(warningDate.getDate() + 5);
+      
+      return expirationDate < warningDate;
+    } catch (error) {
+      return false;
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5" />
-            Contract #{String(contract.contractNumber).padStart(3, '0')}
+            Contract #{String(contract.contractNumber || '000').padStart(3, '0')}
             <Badge className={getStatusColor()}>
               {getStatusIcon()}
               {contract.status}
             </Badge>
           </DialogTitle>
           <DialogDescription>
-            {displayInfo.direction} • Created {format(new Date(contract.createdDate), 'MMM d, yyyy')}
+            {displayInfo.direction} • Created {formatDate(contract.createdDate)}
           </DialogDescription>
         </DialogHeader>
 
@@ -263,14 +308,14 @@ export default function ContractDetailDialog({
 
               <div>
                 <span className="text-gray-500">Created:</span>
-                <span className="ml-2 font-medium">{format(new Date(contract.createdDate), 'MMM d, yyyy')}</span>
+                <span className="ml-2 font-medium">{formatDate(contract.createdDate)}</span>
               </div>
 
               <div>
                 <span className="text-gray-500">Expires:</span>
-                <span className="ml-2 font-medium">
-                  {format(new Date(contract.expirationDate), 'MMM d, yyyy')}
-                  {new Date(contract.expirationDate) < new Date(new Date().setDate(new Date().getDate() + 5)) && (
+                <span className={`ml-2 font-medium ${isExpiringSoon() ? 'text-red-600 font-semibold' : ''}`}>
+                  {formatDate(contract.expirationDate)}
+                  {isExpiringSoon() && (
                     <span className="ml-2 text-red-600 font-semibold">⚠️ Expiring Soon</span>
                   )}
                 </span>
@@ -279,14 +324,14 @@ export default function ContractDetailDialog({
               {contract.approvedAt && (
                 <div>
                   <span className="text-gray-500">Approved:</span>
-                  <span className="ml-2 font-medium">{format(new Date(contract.approvedAt), 'MMM d, yyyy')}</span>
+                  <span className="ml-2 font-medium">{formatDate(contract.approvedAt)}</span>
                 </div>
               )}
 
               {contract.rejectedAt && (
                 <div>
                   <span className="text-gray-500">Rejected:</span>
-                  <span className="ml-2 font-medium">{format(new Date(contract.rejectedAt), 'MMM d, yyyy')}</span>
+                  <span className="ml-2 font-medium">{formatDate(contract.rejectedAt)}</span>
                 </div>
               )}
             </div>
