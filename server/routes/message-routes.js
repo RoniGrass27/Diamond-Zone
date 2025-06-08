@@ -205,13 +205,18 @@ const createContractRequestMessage = async (fromUserId, toUserEmail, contractId,
     }
     console.log('✅ Sender found:', fromUser.email);
     
+    // Format diamond number display
+    const diamondDisplay = contractData.diamondNumber 
+      ? `#${String(contractData.diamondNumber).padStart(3, '0')}` 
+      : 'N/A';
+    
     const message = new Message({
       type: 'contract_request',
       fromUser: fromUserId,
       toUser: toUser._id,
       title: `New ${contractData.type} Contract Request`,
-      content: `${fromUser.businessName || fromUser.fullName} has sent you a ${contractData.type.toLowerCase()} contract request for diamond #${contractData.diamondNumber || 'N/A'}`,
-      contractId: contractId, // Make sure this is set correctly
+      content: `${fromUser.fullName /*|| fromUser.businessName*/} has sent you a ${contractData.type.toLowerCase()} contract request for diamond ${diamondDisplay}`,
+      contractId: contractId,
       diamondId: contractData.diamondId,
       isActionRequired: true,
       actionType: 'approve_contract',
@@ -219,6 +224,9 @@ const createContractRequestMessage = async (fromUserId, toUserEmail, contractId,
         price: contractData.price,
         expirationDate: contractData.expirationDate,
         contractType: contractData.type,
+        duration: contractData.duration,
+        terms: contractData.terms,
+        diamondNumber: contractData.diamondNumber,
         priority: 'high'
       }
     });

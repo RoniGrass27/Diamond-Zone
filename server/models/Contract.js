@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const ContractSchema = new mongoose.Schema({
   type: {
     type: String,
-    enum: ['MemoFrom', 'Buy', 'Sell'], // Removed 'MemoTo'
+    enum: ['MemoFrom', 'Buy', 'Sell'],
     required: true
   },
   diamondId: {
@@ -11,15 +11,28 @@ const ContractSchema = new mongoose.Schema({
     ref: 'Diamond',
     required: true
   },
+  // Store diamond information directly to avoid lookup issues
+  diamondInfo: {
+    diamondNumber: {
+      type: Number,
+      required: true
+    },
+    carat: Number,
+    shape: String,
+    color: String,
+    clarity: String,
+    cut: String,
+    polish: String,
+    symmetry: String,
+    uv: String,
+    price: Number,
+    status: String
+  },
   ownerId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true
   },
-  // Email addresses based on contract type:
-  // MemoFrom: buyerEmail = recipient, sellerEmail = current user
-  // Buy: buyerEmail = current user, sellerEmail = diamond owner  
-  // Sell: buyerEmail = potential buyer, sellerEmail = current user
   buyerEmail: {
     type: String,
     required: true
@@ -60,9 +73,8 @@ const ContractSchema = new mongoose.Schema({
     type: Date,
     default: null
   },
-  // Fields specific to MemoFrom contracts
   duration: {
-    type: Number, // in days
+    type: Number,
     required: function() {
       return this.type === 'MemoFrom';
     },
@@ -77,7 +89,6 @@ const ContractSchema = new mongoose.Schema({
       return this.type === 'MemoFrom';
     }
   },
-  // Blockchain related fields
   blockchain_enabled: {
     type: Boolean,
     default: false
@@ -100,13 +111,10 @@ ContractSchema.pre('save', function(next) {
 // Method to get the counterparty email based on current user
 ContractSchema.methods.getCounterpartyEmail = function(currentUserEmail) {
   if (this.type === 'MemoFrom') {
-    // For MemoFrom, if current user is seller, counterparty is buyer
     return currentUserEmail === this.sellerEmail ? this.buyerEmail : this.sellerEmail;
   } else if (this.type === 'Buy') {
-    // For Buy, if current user is buyer, counterparty is seller
     return currentUserEmail === this.buyerEmail ? this.sellerEmail : this.buyerEmail;
   } else if (this.type === 'Sell') {
-    // For Sell, if current user is seller, counterparty is buyer
     return currentUserEmail === this.sellerEmail ? this.buyerEmail : this.sellerEmail;
   }
   return null;
@@ -115,13 +123,10 @@ ContractSchema.methods.getCounterpartyEmail = function(currentUserEmail) {
 // Method to check if current user can approve this contract
 ContractSchema.methods.canApprove = function(currentUserEmail) {
   if (this.type === 'MemoFrom') {
-    // Recipient (buyer) can approve memo from requests
     return this.buyerEmail === currentUserEmail;
   } else if (this.type === 'Buy') {
-    // Seller can approve buy requests
     return this.sellerEmail === currentUserEmail;
   } else if (this.type === 'Sell') {
-    // Buyer can approve sell offers
     return this.buyerEmail === currentUserEmail;
   }
   return false;
@@ -161,7 +166,7 @@ ContractSchema.methods.getDisplayInfo = function(currentUserEmail) {
   return {
     direction,
     counterparty,
-    isInitiator: this.ownerId.toString() === currentUserEmail // Note: this compares ObjectId with email, needs adjustment
+    isInitiator: this.ownerId.toString() === currentUserEmail
   };
 };
 

@@ -4,20 +4,22 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Search, Plus, QrCode, FileText, Clock, User as UserIcon } from "lucide-react";
+import { Search, Plus, QrCode, FileText, Clock, User as UserIcon, Eye } from "lucide-react";
 import { format } from "date-fns";
 
 import ContractForm from "../components/contracts/ContractForm";
 import QRCodeDialog from "../components/contracts/QRCodeDialog";
+import ContractDetailDialog from "../components/contracts/ContractDetailDialog";
 
 export default function ContractsPage() {
   const [contracts, setContracts] = useState([]);
   const [diamonds, setDiamonds] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
-  const [users, setUsers] = useState([]); // Store all users for name lookup
+  const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showQrDialog, setShowQrDialog] = useState(false);
+  const [showDetailDialog, setShowDetailDialog] = useState(false);
   const [selectedContract, setSelectedContract] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -40,7 +42,7 @@ export default function ContractsPage() {
       const [contractsData, diamondsData, usersData] = await Promise.all([
         Contract.list(),
         Diamond.list(),
-        fetchAllUsers() // Fetch users to get full names
+        fetchAllUsers()
       ]);
       setContracts(contractsData);
       setDiamonds(diamondsData);
@@ -52,7 +54,6 @@ export default function ContractsPage() {
     }
   };
 
-  // Function to fetch all users for name lookup
   const fetchAllUsers = async () => {
     try {
       const token = localStorage.getItem('token');
@@ -79,7 +80,7 @@ export default function ContractsPage() {
       
       const result = await Contract.create({
         type: contractData.type,
-        diamondId: contractData.diamondId, // Use the correct field name
+        diamondId: contractData.diamondId,
         buyerEmail: contractData.buyerEmail,
         sellerEmail: contractData.sellerEmail,
         price: contractData.price,
@@ -104,18 +105,61 @@ export default function ContractsPage() {
     }
   };
 
+  const handleApproveContract = async (contractId) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`/api/contracts/${contractId}/approve`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        await loadData();
+        setShowDetailDialog(false);
+      }
+    } catch (error) {
+      console.error('Error approving contract:', error);
+    }
+  };
+
+  const handleRejectContract = async (contractId) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`/api/contracts/${contractId}/reject`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        await loadData();
+        setShowDetailDialog(false);
+      }
+    } catch (error) {
+      console.error('Error rejecting contract:', error);
+    }
+  };
+
   const viewQrCode = (contract) => {
     setSelectedContract(contract);
     setShowQrDialog(true);
   };
 
-  // Helper function to get user's full name by email
+  const viewContractDetails = (contract) => {
+    setSelectedContract(contract);
+    setShowDetailDialog(true);
+  };
+
   const getUserFullName = (email) => {
     const user = users.find(u => u.email === email);
     return user ? user.fullName || user.full_name : email;
   };
 
-  // Helper function to get contract display info
   const getContractDisplayInfo = (contract) => {
     if (!currentUser) return { direction: contract.type, counterparty: 'Unknown' };
     
@@ -178,11 +222,43 @@ export default function ContractsPage() {
     };
   };
 
+  const getDiamondDisplayNumber = (contract) => {
+    if (contract.diamondInfo && contract.diamondInfo.diamondNumber) {
+      return `#${String(contract.diamondInfo.diamondNumber).padStart(3, '0')}`;
+    }
+    
+    if (contract.diamondId && contract.diamondId.diamondNumber) {
+      return `#${String(contract.diamondId.diamondNumber).padStart(3, '0')}`;
+    }
+    
+    const diamond = diamonds.find(d => String(d.id) === String(contract.diamondId?._id || contract.diamondId));
+    if (diamond && diamond.diamondNumber) {
+      return `#${String(diamond.diamondNumber).padStart(3, '0')}`;
+    }
+    
+    return 'N/A';
+  };
+
   const filteredContracts = contracts.filter(contract => 
-    contract.contract_number?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    contract.contractNumber?.toString().includes(searchQuery.toLowerCase()) ||
     contract.type?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     getContractDisplayInfo(contract).direction.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'pending':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'approved':
+        return 'bg-green-100 text-green-800';
+      case 'rejected':
+        return 'bg-red-100 text-red-800';
+      case 'returned':
+        return 'bg-blue-100 text-blue-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
 
   return (
     <div className="p-6">
@@ -223,7 +299,6 @@ export default function ContractsPage() {
                   <th className="text-left py-3 px-4">Contract #</th>
                   <th className="text-left py-3 px-4">Type</th>
                   <th className="text-left py-3 px-4">Diamond</th>
-                  <th className="hidden text-left py-3 px-4">Counterparty</th>
                   <th className="text-left py-3 px-4">Details</th>
                   <th className="text-left py-3 px-4">Created At</th>
                   <th className="text-left py-3 px-4">Expiration</th>
@@ -234,22 +309,25 @@ export default function ContractsPage() {
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan="9" className="text-center py-8">Loading...</td>
+                    <td colSpan="8" className="text-center py-8">Loading...</td>
                   </tr>
                 ) : filteredContracts.length === 0 ? (
                   <tr>
-                    <td colSpan="9" className="text-center py-8">
+                    <td colSpan="8" className="text-center py-8">
                       <FileText className="h-8 w-8 text-gray-400 mx-auto mb-2" />
                       <p className="text-gray-500">No contracts found</p>
                     </td>
                   </tr>
                 ) : (
                   filteredContracts.map(contract => {
-                    const diamond = diamonds.find(d => String(d.id) === String(contract.diamondId?._id));
                     const displayInfo = getContractDisplayInfo(contract);
                     
                     return (
-                      <tr key={contract.id} className="border-b hover:bg-gray-50">
+                      <tr 
+                        key={contract.id} 
+                        className="border-b hover:bg-gray-50 cursor-pointer"
+                        onClick={() => viewContractDetails(contract)}
+                      >
                         <td className="py-3 px-4 font-medium">
                           #{String(contract.contractNumber).padStart(3, '0')}
                         </td>
@@ -258,30 +336,10 @@ export default function ContractsPage() {
                             <span className="text-sm text-gray-700">
                               {contract.type}
                             </span>
-                            {/*displayInfo.isInitiator && (
-                              <Badge variant="outline" className="text-xs">
-                                Created by you
-                              </Badge>
-                            )*/}
                           </div>
                         </td>
                         <td className="py-3 px-4">
-                          {diamond && diamond.diamondNumber
-                            ? `#${String(diamond.diamondNumber).padStart(3, '0')}`
-                            : 'N/A'}
-                        </td>
-                        <td className="hidden py-3 px-4">
-                          <div className="flex items-center gap-2">
-                            <UserIcon className="h-4 w-4 text-gray-400" />
-                            <div className="text-sm">
-                              <div className="font-medium">
-                                {displayInfo.counterpartyName}
-                              </div>
-                              <div className="text-gray-500 text-xs">
-                                {displayInfo.counterparty}
-                              </div>
-                            </div>
-                          </div>
+                          {getDiamondDisplayNumber(contract)}
                         </td>
                         <td className="py-3 px-4">
                           <div className="text-sm">
@@ -322,26 +380,36 @@ export default function ContractsPage() {
                         <td className="py-3 px-4">
                           <Badge 
                             variant={contract.status === "approved" ? "default" : "outline"}
-                            className={
-                              contract.status === "pending" ? "bg-yellow-100 text-yellow-800" :
-                              contract.status === "approved" ? "bg-green-100 text-green-800" :
-                              contract.status === "rejected" ? "bg-red-100 text-red-800" :
-                              contract.status === "returned" ? "bg-blue-100 text-blue-800" :
-                              "bg-gray-100 text-gray-800"
-                            }
+                            className={getStatusColor(contract.status)}
                           >
                             {contract.status}
                           </Badge>
                         </td>
                         <td className="py-3 px-4 text-right">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => viewQrCode(contract)}
-                          >
-                            <QrCode className="h-4 w-4 mr-2" />
-                            View QR
-                          </Button>
+                          <div className="flex gap-2 justify-end">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                viewContractDetails(contract);
+                              }}
+                              title="View Details"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                viewQrCode(contract);
+                              }}
+                              title="View QR Code"
+                            >
+                              <QrCode className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -368,6 +436,17 @@ export default function ContractsPage() {
         open={showQrDialog}
         onOpenChange={setShowQrDialog}
         diamonds={diamonds}
+      />
+
+      {/* Contract Detail Dialog */}
+      <ContractDetailDialog
+        contract={selectedContract}
+        open={showDetailDialog}
+        onOpenChange={setShowDetailDialog}
+        currentUser={currentUser}
+        users={users}
+        onApprove={handleApproveContract}
+        onReject={handleRejectContract}
       />
     </div>
   );
