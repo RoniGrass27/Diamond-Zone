@@ -6,7 +6,11 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Search, Plus, QrCode, FileText, Clock, User as UserIcon, Eye } from "lucide-react";
 import { format } from "date-fns";
-import { formatContractDate, isExpiringSoon } from "@/utils/dateUtils";
+import { 
+  formatContractDate, 
+  formatContractDateTime, // Added this import
+  isExpiringSoon 
+} from "@/utils/dateUtils";
 import ContractForm from "../components/contracts/ContractForm";
 import QRCodeDialog from "../components/contracts/QRCodeDialog";
 import ContractDetailDialog from "../components/contracts/ContractDetailDialog";
@@ -240,6 +244,17 @@ export default function ContractsPage() {
     return 'N/A';
   };
 
+  // Helper function to format time only
+  const formatTimeOnly = (dateValue) => {
+    if (!dateValue) return '';
+    try {
+      const date = new Date(dateValue);
+      return format(date, 'HH:mm');
+    } catch (error) {
+      return '';
+    }
+  };
+
   const filteredContracts = contracts.filter(contract => 
     contract.contractNumber?.toString().includes(searchQuery.toLowerCase()) ||
     contract.type?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -309,7 +324,7 @@ export default function ContractsPage() {
                   <th className="text-left py-3 px-4">Type</th>
                   <th className="text-left py-3 px-4">Diamond</th>
                   <th className="text-left py-3 px-4">Details</th>
-                  <th className="text-left py-3 px-4">Created At</th>
+                  <th className="text-left py-3 px-4">Created</th>
                   <th className="text-left py-3 px-4">Expiration</th>
                   <th className="text-left py-3 px-4">Status</th>
                   <th className="text-right py-3 px-4">Actions</th>
@@ -363,7 +378,7 @@ export default function ContractsPage() {
                                 {contract.duration} days
                               </div>
                             )}
-                            {contract.terms && contract.terms !== "Standard terms apply." && (
+                            {contract.terms && contract.terms.trim() !== '' && contract.terms !== 'Standard terms apply.' && (
                               <div className="text-xs text-gray-400 truncate max-w-[150px]" title={contract.terms}>
                                 {contract.terms}
                               </div>
@@ -371,7 +386,15 @@ export default function ContractsPage() {
                           </div>
                         </td>
                         <td className="py-3 px-4 text-sm">
-                          {formatContractDate(contract.createdDate)}
+                          {/* Updated to show time */}
+                          <div className="flex flex-col">
+                            <span className="font-medium">
+                              {formatContractDate(contract.createdDate)}
+                            </span>
+                            <span className="text-xs text-gray-500">
+                              at {formatTimeOnly(contract.createdDate)}
+                            </span>
+                          </div>
                         </td>
                         <td className="py-3 px-4 text-sm">
                           {contract.expirationDate ? (

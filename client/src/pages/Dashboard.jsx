@@ -27,7 +27,11 @@ import {
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { format } from "date-fns";
-import { formatCompactDate, formatDetailedDate } from "@/utils/dateUtils";
+import { 
+  formatCompactDate, 
+  formatDetailedDate,
+  formatContractDateTime // Add this import
+} from "@/utils/dateUtils";
 
 // Import the QR Code Dialog component
 import QRCodeDialog from "@/components/contracts/QRCodeDialog";
@@ -42,6 +46,17 @@ export default function Dashboard() {
   const [showMessageDetail, setShowMessageDetail] = useState(false);
   const [showQrDialog, setShowQrDialog] = useState(false);
   const [selectedContract, setSelectedContract] = useState(null);
+
+  // Helper function to format time for messages
+  const formatMessageTime = (dateValue) => {
+    if (!dateValue) return '';
+    try {
+      const date = new Date(dateValue);
+      return format(date, 'HH:mm');
+    } catch (error) {
+      return '';
+    }
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -429,7 +444,8 @@ export default function Dashboard() {
                           <p className="text-sm text-gray-600 mb-2 line-clamp-2">{formatMessageContent(message)}</p>
                           <div className="flex items-center gap-2 text-xs text-gray-500 flex-wrap">
                             <Clock className="h-3 w-3" />
-                            {formatCompactDate(message.createdAt)}
+                            {/* Updated to show better time formatting */}
+                            <span className="font-medium">{formatCompactDate(message.createdAt)}</span>
                             {message.metadata?.contractType && (
                               <>
                                 <span>•</span>
@@ -547,6 +563,7 @@ export default function Dashboard() {
               {selectedMessage && getStatusBadge(selectedMessage)}
             </DialogTitle>
             <DialogDescription>
+              {/* Updated to show better date/time formatting */}
               {selectedMessage && formatDetailedDate(selectedMessage.createdAt)}
             </DialogDescription>
           </DialogHeader>

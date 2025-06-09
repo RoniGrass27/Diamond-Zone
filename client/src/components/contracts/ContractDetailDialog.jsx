@@ -20,7 +20,11 @@ import {
   AlertCircle
 } from "lucide-react";
 import { format, isValid, parseISO } from "date-fns";
-import { formatContractDate, isExpiringSoon } from "@/utils/dateUtils";
+import { 
+  formatContractDate, 
+  formatContractDateTime,  // Add this import
+  isExpiringSoon 
+} from "@/utils/dateUtils";
 
 export default function ContractDetailDialog({ 
   contract, 
@@ -33,10 +37,39 @@ export default function ContractDetailDialog({
 }) {
   if (!contract) return null;
 
-// Helper function to safely format dates
-const formatDate = (dateValue) => {
+  // Helper function to safely format dates with time
+  const formatDateTimeDisplay = (dateValue) => {
+    if (!dateValue) return 'N/A';
+    
+    try {
+      const date = new Date(dateValue);
+      if (!isValid(date)) return 'Invalid Date';
+      
+      return format(date, "MMM d, yyyy 'at' HH:mm");
+    } catch (error) {
+      console.error('Date formatting error:', error);
+      return 'Invalid Date';
+    }
+  };
+
+  // Helper function to get just the time from a date
+  const formatTimeOnly = (dateValue) => {
+    if (!dateValue) return '';
+    
+    try {
+      const date = new Date(dateValue);
+      if (!isValid(date)) return '';
+      
+      return format(date, 'HH:mm');
+    } catch (error) {
+      return '';
+    }
+  };
+
+  // Helper function to safely format dates
+  const formatDate = (dateValue) => {
     return formatContractDate(dateValue);
-};
+  };
 
   const getUserFullName = (email) => {
     const user = users.find(u => u.email === email);
@@ -170,10 +203,10 @@ const formatDate = (dateValue) => {
     }
   };
 
-// Check if expiration is soon
-const checkExpiringSoon = (expirationDate) => {
-  return isExpiringSoon(expirationDate);
-};
+  // Check if expiration is soon
+  const checkExpiringSoon = (expirationDate) => {
+    return isExpiringSoon(expirationDate);
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -188,7 +221,8 @@ const checkExpiringSoon = (expirationDate) => {
             </Badge>
           </DialogTitle>
           <DialogDescription>
-            {displayInfo.direction} • Created {formatDate(contract.createdDate)}
+            {/* Updated to show creation time */}
+            {displayInfo.direction} • Created {formatDateTimeDisplay(contract.createdDate)}
           </DialogDescription>
         </DialogHeader>
 
@@ -246,7 +280,7 @@ const checkExpiringSoon = (expirationDate) => {
             </div>
           </div>
 
-          {/* Contract Details */}
+          {/* Contract Details - Updated to show times */}
           <div className="p-4 border rounded-lg">
             <h4 className="font-medium mb-3 flex items-center gap-2">
               <FileText className="h-4 w-4" />
@@ -274,30 +308,45 @@ const checkExpiringSoon = (expirationDate) => {
 
               <div>
                 <span className="text-gray-500">Created:</span>
-                <span className="ml-2 font-medium">{formatDate(contract.createdDate)}</span>
+                <div className="ml-2">
+                  <div className="font-medium">{formatContractDate(contract.createdDate)}</div>
+                  <div className="text-xs text-gray-400">
+                    at {formatTimeOnly(contract.createdDate)}
+                  </div>
+                </div>
               </div>
 
               <div>
                 <span className="text-gray-500">Expires:</span>
-                <span className={`ml-2 font-medium ${checkExpiringSoon(contract.expirationDate) ? 'text-red-600 font-semibold' : ''}`}>
-                  {formatDate(contract.expirationDate)}
+                <div className={`ml-2 ${checkExpiringSoon(contract.expirationDate) ? 'text-red-600 font-semibold' : ''}`}>
+                  <div className="font-medium">{formatContractDate(contract.expirationDate)}</div>
                   {checkExpiringSoon(contract.expirationDate) && (
-                    <span className="ml-2 text-red-600 font-semibold">⚠️ Expiring Soon</span>
+                    <div className="text-xs text-red-600 font-semibold">⚠️ Expiring Soon</div>
                   )}
-                </span>
+                </div>
               </div>
 
               {contract.approvedAt && (
                 <div>
                   <span className="text-gray-500">Approved:</span>
-                  <span className="ml-2 font-medium">{formatDate(contract.approvedAt)}</span>
+                  <div className="ml-2">
+                    <div className="font-medium">{formatContractDate(contract.approvedAt)}</div>
+                    <div className="text-xs text-gray-400">
+                      at {formatTimeOnly(contract.approvedAt)}
+                    </div>
+                  </div>
                 </div>
               )}
 
               {contract.rejectedAt && (
                 <div>
                   <span className="text-gray-500">Rejected:</span>
-                  <span className="ml-2 font-medium">{formatDate(contract.rejectedAt)}</span>
+                  <div className="ml-2">
+                    <div className="font-medium">{formatContractDate(contract.rejectedAt)}</div>
+                    <div className="text-xs text-gray-400">
+                      at {formatTimeOnly(contract.rejectedAt)}
+                    </div>
+                  </div>
                 </div>
               )}
             </div>

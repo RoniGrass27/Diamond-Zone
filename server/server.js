@@ -167,6 +167,9 @@ app.get('/api/contracts', protect, async (req, res) => {
   }
 });
 
+// server/server.js - Complete Contract POST route replacement
+// Replace the entire app.post('/api/contracts', protect, async (req, res) => { ... }) block with this:
+
 app.post('/api/contracts', protect, async (req, res) => {
   try {
     console.log('=== Creating Contract ===');
@@ -229,6 +232,23 @@ app.post('/api/contracts', protect, async (req, res) => {
 
     console.log('✅ Emails validated:', { buyerEmail, sellerEmail });
 
+    // Build contract data with proper date handling
+    const now = new Date(); // This creates a proper Date object with current date and time
+    
+    // Handle expiration date properly
+    let expirationDate;
+    if (req.body.expiration_date || req.body.expirationDate) {
+      // Parse the incoming date and set time to end of day
+      const inputDate = req.body.expiration_date || req.body.expirationDate;
+      expirationDate = new Date(inputDate);
+      // Set to 23:59:59 of the expiration date to give full day
+      expirationDate.setHours(23, 59, 59, 999);
+    } else {
+      // Default to 30 days from now
+      expirationDate = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+      expirationDate.setHours(23, 59, 59, 999);
+    }
+
     // Build contract data with embedded diamond information
     const contractData = {
       type: req.body.type,
@@ -252,8 +272,8 @@ app.post('/api/contracts', protect, async (req, res) => {
       sellerEmail: sellerEmail,
       contractNumber: contractNumber,
       status: 'pending',
-      createdDate: new Date(),
-      expirationDate: req.body.expiration_date ? new Date(req.body.expiration_date) : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      createdDate: now, // Use proper Date object with current time
+      expirationDate: expirationDate,
       blockchain_enabled: req.body.blockchain_enabled || false,
       wallet_address: req.body.wallet_address || null
     };
@@ -271,7 +291,11 @@ app.post('/api/contracts', protect, async (req, res) => {
       contractData.price = req.body.price;
     }
 
-    console.log('✅ Final contract data:', JSON.stringify(contractData, null, 2));
+    console.log('✅ Final contract data with proper dates:', {
+      ...contractData,
+      createdDate: contractData.createdDate.toISOString(),
+      expirationDate: contractData.expirationDate.toISOString()
+    });
 
     // Create and save contract
     const contract = new Contract(contractData);
@@ -279,6 +303,7 @@ app.post('/api/contracts', protect, async (req, res) => {
     
     console.log('✅ Contract saved with ID:', contract._id);
     console.log('✅ Contract number:', contract.contractNumber);
+    console.log('✅ Contract created at:', contract.createdDate.toISOString());
 
     // Create notification message
     try {

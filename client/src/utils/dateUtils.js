@@ -13,15 +13,12 @@ export function formatDate(dateValue, formatString = 'MMM d, yyyy') {
   
   if (typeof dateValue === 'string') {
     // Clean the string to remove any unwanted characters that might be concatenated
-    // This handles cases where IDs or other data might be appended to date strings
     let cleanDateString = dateValue;
     
     // If it looks like there's extra data after the date, try to extract just the date part
     if (dateValue.includes('PM') || dateValue.includes('AM')) {
-      // Handle cases like "Jun 8, 2025 PM174938322 16:12"
       const parts = dateValue.split(/\s+/);
       if (parts.length >= 3) {
-        // Try to reconstruct a clean date from the first 3 parts
         cleanDateString = parts.slice(0, 3).join(' ');
       }
     }
@@ -32,7 +29,7 @@ export function formatDate(dateValue, formatString = 'MMM d, yyyy') {
     try {
       // Try parsing as ISO string first
       if (cleanDateString.includes('T') || cleanDateString.includes('-')) {
-        date = parseISO(cleanDateString.split('T')[0]); // Take only the date part if it's ISO
+        date = parseISO(cleanDateString);
       } else {
         // Try parsing as a regular date string
         date = new Date(cleanDateString);
@@ -57,6 +54,15 @@ export function formatDate(dateValue, formatString = 'MMM d, yyyy') {
     console.error('Date formatting error:', error);
     return 'Invalid Date';
   }
+}
+
+/**
+ * Format a date with time for contracts and messages
+ * @param {string|Date} dateValue - The date value to format
+ * @returns {string} - Formatted date and time string
+ */
+export function formatDateTime(dateValue) {
+  return formatDate(dateValue, "MMM d, yyyy 'at' HH:mm");
 }
 
 /**
@@ -87,12 +93,21 @@ export function formatDetailedDate(dateValue) {
 }
 
 /**
- * Format a date for contracts and business documents
+ * Format a date for contracts and business documents (DATE ONLY)
  * @param {string|Date} dateValue - The date value to format
  * @returns {string} - Formatted date string
  */
 export function formatContractDate(dateValue) {
   return formatDate(dateValue, 'MMM d, yyyy');
+}
+
+/**
+ * Format a date for contracts with creation time
+ * @param {string|Date} dateValue - The date value to format
+ * @returns {string} - Formatted date and time string
+ */
+export function formatContractDateTime(dateValue) {
+  return formatDate(dateValue, "MMM d, yyyy 'at' HH:mm");
 }
 
 /**
