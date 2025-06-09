@@ -197,13 +197,13 @@ const createContractRequestMessage = async (fromUserId, toUserEmail, contractId,
     if (!toUser) {
       throw new Error('Recipient not found');
     }
-    console.log('✅ Recipient found:', toUser.email);
+    console.log('Recipient found:', toUser.email);
 
     const fromUser = await User.findById(fromUserId);
     if (!fromUser) {
       throw new Error('Sender not found');
     }
-    console.log('✅ Sender found:', fromUser.email);
+    console.log('Sender found:', fromUser.email);
     
     // Format diamond number display
     const diamondDisplay = contractData.diamondNumber 
@@ -232,12 +232,12 @@ const createContractRequestMessage = async (fromUserId, toUserEmail, contractId,
     });
 
     await message.save();
-    console.log('✅ Message saved with ID:', message._id);
-    console.log('✅ Message contractId:', message.contractId);
+    console.log('Message saved with ID:', message._id);
+    console.log('Message contractId:', message.contractId);
     
     return message;
   } catch (error) {
-    console.error('❌ Error creating contract request message:', error);
+    console.error('Error creating contract request message:', error);
     throw error;
   }
 };

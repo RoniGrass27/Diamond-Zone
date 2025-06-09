@@ -16,7 +16,7 @@ async function testMessageSystem() {
     console.log('Users in database:', users);
 
     if (users.length < 2) {
-      console.log('❌ Need at least 2 users to test messaging');
+      console.log('Need at least 2 users to test messaging');
       return;
     }
 
@@ -40,7 +40,7 @@ async function testMessageSystem() {
     });
 
     await testMessage.save();
-    console.log('✅ Test message created:', testMessage._id);
+    console.log('Test message created:', testMessage._id);
 
     // Test 3: Check messages for each user
     console.log('\n=== Checking Messages for Each User ===');
@@ -50,7 +50,7 @@ async function testMessageSystem() {
         .populate('fromUser', 'fullName email')
         .sort({ createdAt: -1 });
       
-      console.log(`\n📧 Messages for ${user.email}:`);
+      console.log(`\nMessages for ${user.email}:`);
       userMessages.forEach(msg => {
         console.log(`  - ${msg.title} (from: ${msg.fromUser?.email || 'Unknown'}) [${msg.isRead ? 'Read' : 'Unread'}]`);
       });
@@ -69,10 +69,10 @@ async function testMessageSystem() {
       console.log(`  Status: ${contract.status}`);
     });
 
-    console.log('\n✅ Message system test completed');
+    console.log('\nMessage system test completed');
 
   } catch (error) {
-    console.error('❌ Test failed:', error);
+    console.error('Test failed:', error);
   } finally {
     await mongoose.disconnect();
   }

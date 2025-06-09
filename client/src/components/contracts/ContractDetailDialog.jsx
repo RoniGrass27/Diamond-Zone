@@ -22,7 +22,7 @@ import {
 import { format, isValid, parseISO } from "date-fns";
 import { 
   formatContractDate, 
-  formatContractDateTime,  // Add this import
+  formatContractDateTime,
   isExpiringSoon 
 } from "@/utils/dateUtils";
 
@@ -42,12 +42,37 @@ export default function ContractDetailDialog({
     if (!dateValue) return 'N/A';
     
     try {
-      const date = new Date(dateValue);
-      if (!isValid(date)) return 'Invalid Date';
+      let date;
+      
+      // Handle different date formats
+      if (typeof dateValue === 'string') {
+        // Clean the string to remove any unwanted characters
+        let cleanDateString = dateValue.trim();
+        
+        // Remove any non-date characters but keep ISO format chars
+        cleanDateString = cleanDateString.replace(/[^0-9a-zA-Z\s,:-T.Z]/g, '');
+        
+        // Try parsing as ISO string first
+        if (cleanDateString.includes('T') || cleanDateString.includes('-')) {
+          date = new Date(cleanDateString);
+        } else {
+          date = new Date(cleanDateString);
+        }
+      } else if (dateValue instanceof Date) {
+        date = dateValue;
+      } else {
+        return 'N/A';
+      }
+      
+      // Check if date is valid
+      if (isNaN(date.getTime())) {
+        console.warn('Invalid date:', dateValue);
+        return 'Invalid Date';
+      }
       
       return format(date, "MMM d, yyyy 'at' HH:mm");
     } catch (error) {
-      console.error('Date formatting error:', error);
+      console.error('Date formatting error:', error, 'for value:', dateValue);
       return 'Invalid Date';
     }
   };
@@ -57,18 +82,27 @@ export default function ContractDetailDialog({
     if (!dateValue) return '';
     
     try {
-      const date = new Date(dateValue);
-      if (!isValid(date)) return '';
+      let date;
+      
+      if (typeof dateValue === 'string') {
+        let cleanDateString = dateValue.trim();
+        cleanDateString = cleanDateString.replace(/[^0-9a-zA-Z\s,:-T.Z]/g, '');
+        date = new Date(cleanDateString);
+      } else if (dateValue instanceof Date) {
+        date = dateValue;
+      } else {
+        return '';
+      }
+      
+      if (isNaN(date.getTime())) {
+        return '';
+      }
       
       return format(date, 'HH:mm');
     } catch (error) {
+      console.error('Time formatting error:', error);
       return '';
     }
-  };
-
-  // Helper function to safely format dates
-  const formatDate = (dateValue) => {
-    return formatContractDate(dateValue);
   };
 
   const getUserFullName = (email) => {

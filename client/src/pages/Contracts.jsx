@@ -247,10 +247,27 @@ export default function ContractsPage() {
   // Helper function to format time only
   const formatTimeOnly = (dateValue) => {
     if (!dateValue) return '';
+    
     try {
-      const date = new Date(dateValue);
+      let date;
+      
+      if (typeof dateValue === 'string') {
+        let cleanDateString = dateValue.trim();
+        cleanDateString = cleanDateString.replace(/[^0-9a-zA-Z\s,:-T.Z]/g, '');
+        date = new Date(cleanDateString);
+      } else if (dateValue instanceof Date) {
+        date = dateValue;
+      } else {
+        return '';
+      }
+      
+      if (isNaN(date.getTime())) {
+        return '';
+      }
+      
       return format(date, 'HH:mm');
     } catch (error) {
+      console.error('Time formatting error:', error);
       return '';
     }
   };
@@ -386,13 +403,9 @@ export default function ContractsPage() {
                           </div>
                         </td>
                         <td className="py-3 px-4 text-sm">
-                          {/* Updated to show time */}
                           <div className="flex flex-col">
                             <span className="font-medium">
-                              {formatContractDate(contract.createdDate)}
-                            </span>
-                            <span className="text-xs text-gray-500">
-                              at {formatTimeOnly(contract.createdDate)}
+                              {formatContractDateTime(contract.createdDate)}
                             </span>
                           </div>
                         </td>

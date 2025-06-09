@@ -182,7 +182,7 @@ app.post('/api/contracts', protect, async (req, res) => {
     // Validate diamond ID first
     let diamondId = req.body.diamondId || req.body.diamond_id;
     if (!diamondId) {
-      console.log('❌ Missing diamond ID');
+      console.log('Missing diamond ID');
       return res.status(400).json({ error: 'Diamond ID is required' });
     }
 
@@ -193,11 +193,11 @@ app.post('/api/contracts', protect, async (req, res) => {
     });
     
     if (!diamond) {
-      console.log('❌ Diamond not found or not owned by user');
+      console.log('Diamond not found or not owned by user');
       return res.status(400).json({ error: 'Diamond not found or you do not own this diamond' });
     }
 
-    console.log('✅ Diamond found:', diamond.diamondNumber);
+    console.log('Diamond found:', diamond.diamondNumber);
 
     // Validate and set emails based on contract type
     let buyerEmail, sellerEmail;
@@ -217,7 +217,7 @@ app.post('/api/contracts', protect, async (req, res) => {
 
     // Validate emails
     if (!buyerEmail || !sellerEmail) {
-      console.log('❌ Missing emails:', { buyerEmail, sellerEmail });
+      console.log('Missing emails:', { buyerEmail, sellerEmail });
       return res.status(400).json({ 
         error: 'Both buyer and seller emails are required',
         debug: { buyerEmail, sellerEmail, originalBuyerEmail: req.body.buyer_email }
@@ -230,7 +230,7 @@ app.post('/api/contracts', protect, async (req, res) => {
       return res.status(400).json({ error: 'Invalid email format' });
     }
 
-    console.log('✅ Emails validated:', { buyerEmail, sellerEmail });
+    console.log('Emails validated:', { buyerEmail, sellerEmail });
 
     // Build contract data with proper date handling
     const now = new Date(); // This creates a proper Date object with current date and time
@@ -291,7 +291,7 @@ app.post('/api/contracts', protect, async (req, res) => {
       contractData.price = req.body.price;
     }
 
-    console.log('✅ Final contract data with proper dates:', {
+    console.log('Final contract data with proper dates:', {
       ...contractData,
       createdDate: contractData.createdDate.toISOString(),
       expirationDate: contractData.expirationDate.toISOString()
@@ -301,9 +301,9 @@ app.post('/api/contracts', protect, async (req, res) => {
     const contract = new Contract(contractData);
     await contract.save();
     
-    console.log('✅ Contract saved with ID:', contract._id);
-    console.log('✅ Contract number:', contract.contractNumber);
-    console.log('✅ Contract created at:', contract.createdDate.toISOString());
+    console.log('Contract saved with ID:', contract._id);
+    console.log('Contract number:', contract.contractNumber);
+    console.log('Contract created at:', contract.createdDate.toISOString());
 
     // Create notification message
     try {
@@ -318,7 +318,7 @@ app.post('/api/contracts', protect, async (req, res) => {
       }
       
       if (recipientEmail && recipientEmail !== req.user.email) {
-        console.log('📧 Creating notification for:', recipientEmail);
+        console.log('Creating notification for:', recipientEmail);
         
         await createContractRequestMessage(
           req.user._id,
@@ -335,12 +335,12 @@ app.post('/api/contracts', protect, async (req, res) => {
           }
         );
         
-        console.log('✅ Notification message created');
+        console.log('Notification message created');
       } else {
-        console.log('ℹ️ No notification needed (same user or missing email)');
+        console.log('No notification needed (same user or missing email)');
       }
     } catch (messageError) {
-      console.error('⚠️ Message creation failed (but contract was created):', messageError);
+      console.error('Message creation failed (but contract was created):', messageError);
     }
 
     res.status(201).json({
@@ -349,7 +349,7 @@ app.post('/api/contracts', protect, async (req, res) => {
     });
     
   } catch (error) {
-    console.error("❌ Error creating contract:", error);
+    console.error("Error creating contract:", error);
     
     if (error.name === 'ValidationError') {
       const messages = Object.values(error.errors).map(val => val.message);
