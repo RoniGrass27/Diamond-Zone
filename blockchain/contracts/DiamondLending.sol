@@ -339,4 +339,18 @@ contract DiamondLending {
     function isDiamondAvailable(uint256 _tokenId) external view returns (bool) {
         return diamonds[_tokenId].isAvailable;
     }
+
+    // struct LoanRequest {
+    // uint256 diamondTokenId;
+    // address borrower;
+    // uint256 loanDuration;
+    // string terms;
+    // bytes32 qrCodeHash;
+    // }
+
+    // LoanRequest[] public loanRequests;
+
+    // function getLoanRequest(uint256 index) public view returns (LoanRequest memory) {
+    //     return loanRequests[index];
+    // }
 }

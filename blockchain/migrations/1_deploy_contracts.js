@@ -11,8 +11,8 @@ module.exports = async function(deployer, network, accounts) {
   const diamondLending = await DiamondLending.deployed();
   
   // Connect the contracts
-  await diamondNFT.setDiamondLendingContract(diamondLending.address);
-  
+await diamondNFT.setDiamondLendingContract(diamondLending.address, { from: accounts[1] });
+
   const metaMaskAddress = "0x56a6fa69ED2Dc65F1C0F6be0eE802e55dC4Aa520";
 
   console.log("DiamondNFT deployed at:", diamondNFT.address);

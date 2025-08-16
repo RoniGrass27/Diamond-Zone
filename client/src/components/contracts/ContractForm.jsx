@@ -185,7 +185,7 @@ export default function ContractForm({ onSubmit, onCancel, diamonds }) {
 
       setEmailError('');
 
-      const isLendingContract = formData.type === 'MemoTo';
+      const isLendingContract = formData.type === 'MemoFrom';
 
       if (isLendingContract) {
         const Web3 = (await import("web3")).default;
