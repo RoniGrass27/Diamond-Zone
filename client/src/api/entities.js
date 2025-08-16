@@ -78,6 +78,24 @@ export const Diamond = {
       }
       throw new Error("Failed to delete diamond");
     }
+  },
+
+  updatePhoto: async (id, photoUrl) => {
+    const response = await fetch(`/api/diamonds/${id}/photo`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ photoUrl }),
+    });
+    if (!response.ok) {
+      if (response.status === 401) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        window.location.href = '/login';
+        return;
+      }
+      throw new Error("Failed to update diamond photo");
+    }
+    return response.json();
   }
 };
 

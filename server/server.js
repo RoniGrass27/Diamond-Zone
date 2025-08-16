@@ -7,6 +7,7 @@ const { Contract } = require('./models/Contract');
 const { Counter } = require('./models/counters');
 const { User } = require('./models/User');
 const { Message } = require('./models/Message');
+const bodyParser = require('body-parser');
 
 // Import routes
 const authRoutes = require('./routes/auth-routes');
@@ -20,7 +21,8 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(cors());
-app.use(express.json());
+app.use(bodyParser.json({ limit: '50mb' }));
+app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
 
 // Auth routes (public)
 app.use('/api/auth', authRoutes);
@@ -106,6 +108,8 @@ app.get('/api/diamonds', protect, async (req, res) => {
 
 app.post('/api/diamonds', protect, async (req, res) => {
   try {
+    console.log('Creating diamond with payload size:', JSON.stringify(req.body).length, 'characters');
+    
     const diamondNumber = await getNextDiamondNumber();
 
     const diamond = new Diamond({
@@ -115,9 +119,11 @@ app.post('/api/diamonds', protect, async (req, res) => {
     });
 
     await diamond.save();
+    console.log('Diamond created successfully with ID:', diamond._id);
     res.status(201).json(diamond);
   } catch (error) {
     console.error("Error creating diamond:", error.message);
+    console.error("Error details:", error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -144,6 +150,31 @@ app.delete('/api/diamonds/:id', protect, async (req, res) => {
     });
     if (!deleted) return res.status(404).json({ error: 'Diamond not found' });
     res.status(204).send();
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Photo upload route for diamonds
+app.post('/api/diamonds/:id/photo', protect, async (req, res) => {
+  try {
+    const { photoUrl } = req.body;
+    
+    if (!photoUrl) {
+      return res.status(400).json({ error: 'Photo URL is required' });
+    }
+
+    const updated = await Diamond.findOneAndUpdate(
+      { _id: req.params.id, ownerId: req.user._id },
+      { photo: photoUrl },
+      { new: true }
+    );
+
+    if (!updated) {
+      return res.status(404).json({ error: 'Diamond not found' });
+    }
+
+    res.json(updated);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
