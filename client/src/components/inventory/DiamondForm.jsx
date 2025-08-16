@@ -30,13 +30,58 @@ export default function DiamondForm({ diamond, onSubmit, onCancel }) {
     symmetry: diamond?.symmetry || '',
     uv: diamond?.uv || '',
     status: diamond?.status || 'In Stock',
-    price: diamond?.price || ''
+    price: diamond?.price || '',
+    photo: diamond?.photo || ''
   });
 
   const [currentTab, setCurrentTab] = useState("basic");
+  const [photoFile, setPhotoFile] = useState(null);
+  const [photoPreview, setPhotoPreview] = useState(diamond?.photo || '');
 
   const handleChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handlePhotoChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setPhotoFile(file);
+      
+      // Compress the image before creating preview
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      const img = new Image();
+      
+      img.onload = () => {
+        // Calculate new dimensions (max 800x800)
+        const maxSize = 800;
+        let { width, height } = img;
+        
+        if (width > height) {
+          if (width > maxSize) {
+            height = (height * maxSize) / width;
+            width = maxSize;
+          }
+        } else {
+          if (height > maxSize) {
+            width = (width * maxSize) / height;
+            height = maxSize;
+          }
+        }
+        
+        canvas.width = width;
+        canvas.height = height;
+        
+        // Draw and compress
+        ctx.drawImage(img, 0, 0, width, height);
+        const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.7); // 70% quality
+        
+        setPhotoPreview(compressedDataUrl);
+        setFormData(prev => ({ ...prev, photo: compressedDataUrl }));
+      };
+      
+      img.src = URL.createObjectURL(file);
+    }
   };
 
   const handleSubmit = (e) => {
@@ -69,6 +114,7 @@ export default function DiamondForm({ diamond, onSubmit, onCancel }) {
             <TabsList className="mb-4">
               <TabsTrigger value="basic">Basic Info</TabsTrigger>
               <TabsTrigger value="quality">Quality</TabsTrigger>
+              <TabsTrigger value="photo">Photo</TabsTrigger>
               <TabsTrigger value="status">Status & Price</TabsTrigger>
             </TabsList>
 
@@ -249,6 +295,49 @@ export default function DiamondForm({ diamond, onSubmit, onCancel }) {
                   <Button type="button" variant="outline" onClick={() => setCurrentTab("basic")}>
                     Back
                   </Button>
+                  <Button type="button" onClick={() => setCurrentTab("photo")}>
+                    Next
+                  </Button>
+                </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="photo" className="space-y-4">
+              <div className="grid grid-cols-1 gap-4">
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="photo">Diamond Photo</Label>
+                    <Input
+                      id="photo"
+                      type="file"
+                      accept="image/*"
+                      onChange={handlePhotoChange}
+                      className="cursor-pointer"
+                    />
+                    <p className="text-sm text-gray-500">
+                      Upload a photo of your diamond. Supported formats: JPG, PNG, GIF. 
+                      Large images will be automatically compressed for optimal performance.
+                    </p>
+                  </div>
+                  
+                  {photoPreview && (
+                    <div className="space-y-2">
+                      <Label>Photo Preview</Label>
+                      <div className="border rounded-lg p-4 bg-gray-50">
+                        <img 
+                          src={photoPreview} 
+                          alt="Diamond preview" 
+                          className="max-w-full h-48 object-contain mx-auto rounded"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex justify-between">
+                  <Button type="button" variant="outline" onClick={() => setCurrentTab("quality")}>
+                    Back
+                  </Button>
                   <Button type="button" onClick={() => setCurrentTab("status")}>
                     Next
                   </Button>
@@ -290,7 +379,7 @@ export default function DiamondForm({ diamond, onSubmit, onCancel }) {
                 </div>
 
                 <div className="flex justify-between">
-                  <Button type="button" variant="outline" onClick={() => setCurrentTab("quality")}>
+                  <Button type="button" variant="outline" onClick={() => setCurrentTab("photo")}>
                     Back
                   </Button>
                   <Button type="submit" className="bg-sky-500 hover:bg-sky-600">

@@ -12,7 +12,8 @@ import {
   Edit,
   Trash2,
   ExternalLink,
-  Download
+  Download,
+  Camera
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -20,6 +21,7 @@ import { format } from "date-fns";
 
 import DiamondForm from "../components/inventory/DiamondForm";
 import DeleteConfirmDialog from "../components/inventory/DeleteConfirmDialog";
+import PhotoUploadDialog from "../components/inventory/PhotoUploadDialog";
 
 export default function Inventory() {
   const [diamonds, setDiamonds] = useState([]);
@@ -27,6 +29,7 @@ export default function Inventory() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showPhotoDialog, setShowPhotoDialog] = useState(false);
   const [selectedDiamond, setSelectedDiamond] = useState(null);
   const [filterStatus, setFilterStatus] = useState("all");
 
@@ -93,12 +96,17 @@ export default function Inventory() {
     setShowDeleteDialog(true);
   };
 
+  const handlePhotoUpload = (diamond) => {
+    setSelectedDiamond(diamond);
+    setShowPhotoDialog(true);
+  };
+
   const exportToCsv = () => {
-    const headers = ['Diamond #', 'Weight', 'Shape', 'Color', 'Clarity', 'Cut', 'Polish', 'Symmetry', 'UV', 'Status', 'Price'];
+    const headers = ['Diamond #', 'Photo', 'Weight', 'Shape', 'Color', 'Clarity', 'Cut', 'Polish', 'Symmetry', 'UV', 'Status', 'Price'];
     const csvContent = "data:text/csv;charset=utf-8," + 
       headers.join(',') + "\n" +
       diamonds.map(d => 
-        `${d.diamondNumber || ''},${d.carat || ''},${d.shape || ''},${d.color || ''},${d.clarity || ''},` +
+        `${d.diamondNumber || ''},${d.photo ? 'Yes' : 'No'},${d.carat || ''},${d.shape || ''},${d.color || ''},${d.clarity || ''},` +
         `${d.cut || ''},${d.polish || ''},${d.symmetry || ''},${d.uv || ''},${d.status || ''},${d.price || ''}`
       ).join("\n");
 
@@ -207,6 +215,7 @@ export default function Inventory() {
                   <thead className="bg-gray-50">
                     <tr>
                       <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Diamond #</th>
+                      <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Photo</th>
                       <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Weight (carats)</th>
                       <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Shape</th>
                       <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Color</th>
@@ -234,6 +243,28 @@ export default function Inventory() {
                                 : `${diamond.id.substring(0, 3)}`}
                             </div>
                           </div>
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap">
+                          {diamond.photo ? (
+                            <div className="flex-shrink-0 h-12 w-12 rounded-lg overflow-hidden border">
+                              <img 
+                                src={diamond.photo} 
+                                alt={`Diamond ${diamond.diamondNumber || diamond.id}`}
+                                className="h-full w-full object-cover"
+                                onError={(e) => {
+                                  e.target.style.display = 'none';
+                                  e.target.nextSibling.style.display = 'flex';
+                                }}
+                              />
+                              <div className="h-full w-full bg-gray-100 flex items-center justify-center" style={{display: 'none'}}>
+                                <DiamondIcon className="h-6 w-6 text-gray-400" />
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex-shrink-0 h-12 w-12 bg-gray-100 rounded-lg flex items-center justify-center">
+                              <DiamondIcon className="h-6 w-6 text-gray-400" />
+                            </div>
+                          )}
                         </td>
                         <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
                           {diamond.carat}
@@ -287,6 +318,14 @@ export default function Inventory() {
                             <Button
                               variant="ghost"
                               size="sm"
+                              onClick={() => handlePhotoUpload(diamond)}
+                              className="text-blue-600 hover:text-blue-800 hover:bg-blue-50"
+                            >
+                              <Camera className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
                               onClick={() => handleDeleteClick(diamond)}
                               className="text-red-600 hover:text-red-800 hover:bg-red-50"
                             >
@@ -322,6 +361,14 @@ export default function Inventory() {
         onOpenChange={setShowDeleteDialog}
         onConfirm={handleDeleteConfirm}
         diamond={selectedDiamond}
+      />
+
+      {/* Photo Upload Dialog */}
+      <PhotoUploadDialog
+        diamond={selectedDiamond}
+        open={showPhotoDialog}
+        onOpenChange={setShowPhotoDialog}
+        onPhotoUploaded={loadDiamonds}
       />
     </div>
   );
