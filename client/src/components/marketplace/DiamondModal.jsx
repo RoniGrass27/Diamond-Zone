@@ -1,178 +1,158 @@
 import React from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileText, Tag, Diamond as DiamondIcon } from "lucide-react";
+import { 
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter
+} from "@/components/ui/dialog";
+import { Diamond as DiamondIcon, Building2, Calendar, DollarSign } from "lucide-react";
 
-export default function DiamondModal({ diamond, open, onOpenChange, onPlaceBid, currentUser }) {
+export default function DiamondModal({ diamond, businessName, open, onOpenChange, onPlaceBid }) {
   if (!diamond) return null;
 
-  const canPlaceBid = 
-    diamond.status === "In Stock" && 
-    diamond.owner !== currentUser?.email;
+  const formatDate = (dateString) => {
+    if (!dateString) return "N/A";
+    try {
+      return new Date(dateString).toLocaleDateString();
+    } catch {
+      return "N/A";
+    }
+  };
+
+  const handleOpenChange = (open) => {
+    onOpenChange(open);
+  };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl">
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Diamond Details</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            <DiamondIcon className="h-6 w-6 text-sky-500" />
+            Diamond #{diamond.diamondNumber || diamond.id?.substring(0, 3)}
+          </DialogTitle>
+          <DialogDescription>
+            Detailed information about this diamond
+          </DialogDescription>
         </DialogHeader>
-        
-        <div className="flex flex-col md:flex-row gap-6">
-          {/* Diamond Image */}
-          <div className="md:w-1/3">
-            <div className="rounded-lg overflow-hidden bg-gray-100 aspect-square flex items-center justify-center">
-              {diamond.image_url ? (
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 py-4">
+          {/* Photo Section */}
+          <div className="space-y-4">
+            <div className="aspect-square overflow-hidden rounded-lg border">
+              {diamond.photo ? (
                 <img 
-                  src={diamond.image_url} 
-                  alt={diamond.name || "Diamond"} 
+                  src={diamond.photo} 
+                  alt={`Diamond ${diamond.diamondNumber || diamond.id}`}
                   className="w-full h-full object-cover"
+                  onError={(e) => {
+                    e.target.style.display = 'none';
+                    e.target.nextSibling.style.display = 'flex';
+                  }}
                 />
               ) : (
-                <DiamondIcon className="h-24 w-24 text-gray-300" />
+                <div className="w-full h-full bg-gray-100 flex items-center justify-center">
+                  <DiamondIcon className="h-24 w-24 text-gray-400" />
+                </div>
+              )}
+              {diamond.photo && (
+                <div className="w-full h-full bg-gray-100 flex items-center justify-center" style={{display: 'none'}}>
+                  <DiamondIcon className="h-24 w-24 text-gray-400" />
+                </div>
               )}
             </div>
             
-            <div className="mt-4 flex gap-2">
-              <Badge 
-                className={
-                  diamond.status === "In Stock" ? "bg-green-100 text-green-800" :
-                  diamond.status === "Borrowed" ? "bg-amber-100 text-amber-800" :
-                  diamond.status === "Sold" ? "bg-gray-100 text-gray-800" :
-                  "bg-blue-100 text-blue-800"
-                }
-              >
-                {diamond.status || "For Sale"}
-              </Badge>
-              
-              {diamond.owner === currentUser?.email && (
-                <Badge variant="outline" className="border-sky-200 text-sky-800 bg-sky-50">
-                  Your Diamond
-                </Badge>
-              )}
-            </div>
-            
-            {canPlaceBid && (
-              <Button 
-                className="w-full mt-4 bg-sky-500 hover:bg-sky-600"
-                onClick={onPlaceBid}
-              >
-                <Tag className="mr-2 h-4 w-4" />
-                Place a Bid
-              </Button>
-            )}
-          </div>
-          
-          {/* Diamond Details */}
-          <div className="md:w-2/3">
-            <div className="mb-4">
-              <h2 className="text-xl font-bold">
-                {diamond.name || `Diamond ${diamond.id.substring(0, 4)}`}
-              </h2>
-              <div className="flex justify-between items-baseline mt-1">
-                <p className="text-gray-500">
-                  {diamond.carat || "0.71"} Carat • {diamond.cut || "Ideal Cut"}
-                </p>
-                <p className="text-xl font-bold text-sky-600">
-                  ${diamond.price?.toLocaleString() || "326"}
-                </p>
+            {/* Price Section */}
+            <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+              <div className="flex items-center gap-2 mb-2">
+                <DollarSign className="h-5 w-5 text-green-600" />
+                <span className="font-medium text-green-800">Price</span>
+              </div>
+              <div className="text-3xl font-bold text-green-600">
+                ${diamond.price?.toLocaleString() || "N/A"}
               </div>
             </div>
-            
-            <Tabs defaultValue="specifications">
-              <TabsList className="mb-4">
-                <TabsTrigger value="specifications">Specifications</TabsTrigger>
-                <TabsTrigger value="certificate">Certificate</TabsTrigger>
-              </TabsList>
-              
-              <TabsContent value="specifications">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-3">
-                    <div>
-                      <p className="text-sm text-gray-500">Carat Weight</p>
-                      <p className="font-medium">{diamond.carat || "0.71"}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Cut</p>
-                      <p className="font-medium">{diamond.cut || "Ideal"}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Color</p>
-                      <p className="font-medium">{diamond.color || "D"}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Clarity</p>
-                      <p className="font-medium">{diamond.clarity || "VS1"}</p>
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-3">
-                    <div>
-                      <p className="text-sm text-gray-500">Polish</p>
-                      <p className="font-medium">{diamond.polish || "Excellent"}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Symmetry</p>
-                      <p className="font-medium">{diamond.symmetry || "Excellent"}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Depth %</p>
-                      <p className="font-medium">{diamond.depth || "61.5"}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Table %</p>
-                      <p className="font-medium">{diamond.table || "55"}</p>
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-3">
-                    <div>
-                      <p className="text-sm text-gray-500">Length (mm)</p>
-                      <p className="font-medium">{diamond.length_mm || "3.95"}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Width (mm)</p>
-                      <p className="font-medium">{diamond.width_mm || "3.98"}</p>
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-3">
-                    <div>
-                      <p className="text-sm text-gray-500">UV Fluorescence</p>
-                      <p className="font-medium">{diamond.uv || "None"}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Status</p>
-                      <p className="font-medium">{diamond.status || "In Stock"}</p>
-                    </div>
-                  </div>
+          </div>
+
+          {/* Details Section */}
+          <div className="space-y-6">
+            {/* Seller Information */}
+            <div className="space-y-3">
+              <h3 className="text-lg font-semibold flex items-center gap-2">
+                <Building2 className="h-5 w-5 text-gray-600" />
+                Seller Information
+              </h3>
+              <div className="bg-gray-50 p-3 rounded-lg">
+                <p className="font-medium text-gray-900">{businessName}</p>
+                <p className="text-sm text-gray-600">Trusted Diamond Seller</p>
+              </div>
+            </div>
+
+            {/* Basic Specifications */}
+            <div className="space-y-3">
+              <h3 className="text-lg font-semibold">Basic Specifications</h3>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-gray-50 p-3 rounded-lg">
+                  <p className="text-sm text-gray-600">Weight</p>
+                  <p className="font-medium">{diamond.carat || "N/A"} Carats</p>
                 </div>
-              </TabsContent>
-              
-              <TabsContent value="certificate">
-                {diamond.certificate_url ? (
-                  <div className="flex flex-col items-center">
-                    <FileText className="h-16 w-16 text-gray-400 mb-4" />
-                    <p className="mb-4">View the diamond's certificate for detailed information.</p>
-                    <a 
-                      href={diamond.certificate_url} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                    >
-                      <Button>View Certificate</Button>
-                    </a>
-                  </div>
-                ) : (
-                  <div className="text-center py-8">
-                    <FileText className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-                    <p className="text-gray-500">No certificate available for this diamond.</p>
-                  </div>
-                )}
-              </TabsContent>
-            </Tabs>
+                <div className="bg-gray-50 p-3 rounded-lg">
+                  <p className="text-sm text-gray-600">Shape</p>
+                  <p className="font-medium">{diamond.shape || "N/A"}</p>
+                </div>
+                <div className="bg-gray-50 p-3 rounded-lg">
+                  <p className="text-sm text-gray-600">Color</p>
+                  <p className="font-medium">{diamond.color || "N/A"}</p>
+                </div>
+                <div className="bg-gray-50 p-3 rounded-lg">
+                  <p className="text-sm text-gray-600">Clarity</p>
+                  <p className="font-medium">{diamond.clarity || "N/A"}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Quality Grades */}
+            <div className="space-y-3">
+              <h3 className="text-lg font-semibold">Quality Grades</h3>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-gray-50 p-3 rounded-lg">
+                  <p className="text-sm text-gray-600">Cut</p>
+                  <p className="font-medium">{diamond.cut || "N/A"}</p>
+                </div>
+                <div className="bg-gray-50 p-3 rounded-lg">
+                  <p className="text-sm text-gray-600">Polish</p>
+                  <p className="font-medium">{diamond.polish || "N/A"}</p>
+                </div>
+                <div className="bg-gray-50 p-3 rounded-lg">
+                  <p className="text-sm text-gray-600">Symmetry</p>
+                  <p className="font-medium">{diamond.symmetry || "N/A"}</p>
+                </div>
+                <div className="bg-gray-50 p-3 rounded-lg">
+                  <p className="text-sm text-gray-600">UV Fluorescence</p>
+                  <p className="font-medium">{diamond.uv || "N/A"}</p>
+                </div>
+              </div>
+            </div>
+
+
           </div>
         </div>
+
+        <DialogFooter className="flex gap-2">
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Close
+          </Button>
+          <Button 
+            onClick={onPlaceBid}
+            className="bg-sky-500 hover:bg-sky-600"
+          >
+            Place a Bid
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
