@@ -13,7 +13,7 @@ const DiamondSchema = new mongoose.Schema({
   photo: String, // URL or file path to the diamond photo
   status: {
     type: String,
-    enum: ['In Stock', 'Borrowed', 'Sold'],
+    enum: ['In Stock', 'Borrowed', 'Sold', 'Memo From'],
     default: 'In Stock'
   },
   diamondNumber: {
@@ -26,6 +26,7 @@ const DiamondSchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
+  memoType: String, // 'Memo From' for seller's diamond
   createdAt: {
     type: Date,
     default: Date.now

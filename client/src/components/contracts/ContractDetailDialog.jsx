@@ -1,4 +1,5 @@
 import React from 'react';
+import { Diamond } from "@/api/entities";
 import {
   Dialog,
   DialogContent,
@@ -36,6 +37,43 @@ export default function ContractDetailDialog({
   users = []
 }) {
   if (!contract) return null;
+
+  const handleReturnDiamond = async (contract) => {
+    try {
+      // Find diamonds associated with this contract
+      const diamonds = await Diamond.list();
+      const sellerDiamond = diamonds.find(d => 
+        d.contractId === (contract.id || contract._id) && d.status === 'Memo From'
+      );
+      const buyerDiamond = diamonds.find(d => 
+        d.contractId === (contract.id || contract._id) && d.status === 'Memo To'
+      );
+
+      if (sellerDiamond) {
+        // Update seller's diamond back to "In Stock"
+        await Diamond.update(sellerDiamond.id, { 
+          status: 'In Stock',
+          contractId: null,
+          memoType: null
+        });
+      }
+
+      if (buyerDiamond) {
+        // Delete the buyer's diamond copy
+        await Diamond.delete(buyerDiamond.id);
+      }
+
+      // Update contract status to "returned"
+      // Note: This would require a contract update API endpoint
+      alert('Diamond returned successfully! The diamond status has been restored to "In Stock".');
+      
+      // Close the dialog
+      onOpenChange(false);
+    } catch (error) {
+      console.error('Error returning diamond:', error);
+      alert('Failed to return diamond. Please try again.');
+    }
+  };
 
   // Helper function to safely format dates with time
   const formatDateTimeDisplay = (dateValue) => {
@@ -438,6 +476,19 @@ export default function ContractDetailDialog({
               >
                 <X className="h-4 w-4 mr-2" />
                 Reject Contract
+              </Button>
+            </div>
+          )}
+
+          {/* Return Diamond Button for MemoFrom Contracts */}
+          {contract.type === 'MemoFrom' && contract.status === 'approved' && (
+            <div className="flex gap-3 pt-4 border-t">
+              <Button
+                onClick={() => handleReturnDiamond(contract)}
+                className="bg-blue-600 hover:bg-blue-700 text-white flex-1"
+              >
+                <DiamondIcon className="h-4 w-4 mr-2" />
+                Return Diamond
               </Button>
             </div>
           )}

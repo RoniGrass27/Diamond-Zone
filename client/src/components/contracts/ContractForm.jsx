@@ -18,6 +18,7 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, Wallet, Link, AlertCircle, CheckCircle } from "lucide-react";
 import { toast } from "react-toastify";
+import { Diamond } from "@/api/entities";
 
 
 //for testing purposes
@@ -185,87 +186,62 @@ export default function ContractForm({ onSubmit, onCancel, diamonds }) {
 
       setEmailError('');
 
-      const isLendingContract = formData.type === 'MemoTo'; //NEEDS TO BE MEMOFROM
-
-      if (isLendingContract) {
-        const Web3 = (await import("web3")).default;
-        const DiamondLendingJSON = await import("../../abis/DiamondLending.json");
-        const DiamondLendingAddress = "0xB4faE67601084B25244d3bb103c1459Fdc99B5Ff";
-
-        const web3 = new Web3(window.ethereum);
-        const accounts = await web3.eth.getAccounts();
-
-        const lendingContract = new web3.eth.Contract(
-          DiamondLendingJSON.abi,
-          DiamondLendingAddress
-        );
-
+      // Handle MemoFrom contracts (diamond lending)
+      if (formData.type === 'MemoFrom') {
+        // Validate that the selected diamond is available
         const selectedDiamond = diamonds.find(d => d.id === formData.diamond_id);
-        console.log("selectedDiamond:", selectedDiamond);
-        const diamondId = selectedDiamond?.diamondNumber;
-        console.log("diamondId (uint256):", diamondId);
-
-        if (!diamondId) {
-          alert("Selected diamond is missing a valid diamondNumber.");
+        if (!selectedDiamond) {
+          alert("Please select a valid diamond.");
           setLoading(false);
           return;
         }
 
-       if (!walletInfo?.address) {
-        await autoConnectWallet(); 
-
-        if (!walletInfo?.address) {
-          alert("Please connect MetaMask before creating a contract.");
+        if (selectedDiamond.status !== "In Stock") {
+          alert("This diamond is not available for memo contracts. Status: " + selectedDiamond.status);
           setLoading(false);
           return;
         }
+
+        // Update the diamond status to "Memo From" (no duplication)
+        try {
+          await Diamond.update(selectedDiamond.id, { 
+            status: 'Memo From',
+            memoType: 'Memo From'
+          });
+          console.log('Diamond status updated to Memo From');
+        } catch (updateError) {
+          console.error('Failed to update diamond status:', updateError);
+          alert('Failed to update diamond status. Please try again.');
+          setLoading(false);
+          return;
+        }
+
+        // No diamond duplication - the buyer will access this diamond through the contract
       }
 
-        const borrower = walletInfo.address;
-        const duration = Number(formData.duration);
-        const terms = formData.terms;
-        const qrCodeHash = web3.utils.keccak256("example");
-
-        await lendingContract.methods
-          .createLoanRequest(diamondId, borrower, duration, terms, qrCodeHash)
-          .send({ from: accounts[0] });
-
-        console.log("Memo request sent to blockchain");
-      }
-
-      const {
-      diamond_id,
-      buyer_email,
-      price,
-      expiration_date,
-      duration,
-      terms,
-      type
-    } = formData;
-
-     const contractData = {
-      diamondId: formData.diamond_id,
-      price: (formData.type === 'Buy' || formData.type === 'Sell') ? formData.price : null,
-      buyerEmail: (formData.type === 'Buy' || formData.type === 'MemoFrom')
-        ? formData.buyer_email
-        : currentUser?.email,
-      sellerEmail: (formData.type === 'Sell' || formData.type === 'MemoFrom')
-        ? currentUser?.email
-        : formData.buyer_email,
-      expirationDate: formData.expiration_date,
-      duration: formData.duration,
-      terms: formData.terms?.trim() || "Standard terms apply.",
-      type: formData.type,
-      status: "pending",
-      createdDate: new Date(),
-      blockchain_enabled: true,
-      wallet_address: walletInfo?.address
-    };
+      // Create the main contract
+      const contractData = {
+        diamondId: formData.diamond_id,
+        price: (formData.type === 'Buy' || formData.type === 'Sell') ? formData.price : null,
+        buyerEmail: (formData.type === 'Buy' || formData.type === 'MemoFrom')
+          ? formData.buyer_email
+          : currentUser?.email,
+        sellerEmail: (formData.type === 'Sell' || formData.type === 'MemoFrom')
+          ? currentUser?.email
+          : formData.buyer_email,
+        expirationDate: formData.expiration_date,
+        duration: formData.duration,
+        terms: formData.terms?.trim() || "Standard terms apply.",
+        type: formData.type, // Keep the original type
+        status: "pending",
+        createdDate: new Date(),
+        blockchain_enabled: true,
+        wallet_address: walletInfo?.address
+      };
 
       console.log("Sending contract to backend:", contractData);
       await onSubmit(contractData);
 
-      //setOpen(false);
       toast.success("Contract created successfully");
     } catch (error) {
       console.error("Error submitting contract:", error);
@@ -323,6 +299,13 @@ export default function ContractForm({ onSubmit, onCancel, diamonds }) {
             {/* Diamond Selection */}
             <div>
               <Label htmlFor="diamond">Select Diamond</Label>
+              {formData.type === 'MemoFrom' && (
+                <div className="mb-2 p-2 bg-blue-50 border border-blue-200 rounded-md">
+                  <p className="text-sm text-blue-800">
+                    ℹ️ MemoFrom contracts will update the diamond status and give the buyer access through the contract.
+                  </p>
+                </div>
+              )}
               <Select
                 value={formData.diamond_id}
                 onValueChange={(value) => handleChange('diamond_id', value)}
@@ -331,11 +314,23 @@ export default function ContractForm({ onSubmit, onCancel, diamonds }) {
                   <SelectValue placeholder="Choose a diamond" />
                 </SelectTrigger>
                 <SelectContent>
-                  {diamonds.map(diamond => (
-                    <SelectItem key={diamond.id} value={diamond.id}>
-                      {`#${String(diamond.diamondNumber).padStart(3, '0')}` || `Diamond #${diamond.id.slice(0, 4)}`} - {diamond.carat}ct
-                    </SelectItem>
-                  ))}
+                  {diamonds
+                    .filter(diamond => {
+                      // For MemoFrom contracts, only show diamonds that are "In Stock"
+                      if (formData.type === 'MemoFrom') {
+                        return diamond.status === "In Stock";
+                      }
+                      // For other contract types, show all diamonds
+                      return true;
+                    })
+                    .map(diamond => (
+                      <SelectItem key={diamond.id} value={diamond.id}>
+                        {`#${String(diamond.diamondNumber).padStart(3, '0')}` || `Diamond #${diamond.id.slice(0, 4)}`} - {diamond.carat}ct
+                        {formData.type === 'MemoFrom' && diamond.status !== "In Stock" && (
+                          <span className="text-red-500 ml-2">({diamond.status})</span>
+                        )}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </div>

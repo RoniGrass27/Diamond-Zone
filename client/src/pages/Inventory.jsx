@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { User, Diamond } from "@/api/entities";
+import { User, Diamond, Inventory as InventoryAPI } from "@/api/entities"; // Rename to InventoryAPI
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,16 +34,28 @@ export default function Inventory() {
   const [filterStatus, setFilterStatus] = useState("all");
 
   useEffect(() => {
-    loadDiamonds();
+    const fetchInventory = async () => {
+      try {
+        setLoading(true);
+        const inventory = await InventoryAPI.getMyInventory(); // Use InventoryAPI instead
+        setDiamonds(inventory);
+      } catch (error) {
+        console.error('Failed to fetch inventory:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchInventory();
   }, []);
 
-  const loadDiamonds = async () => {
+  const refreshInventory = async () => {
     try {
       setLoading(true);
-      const data = await Diamond.list();
-      setDiamonds(data);
+      const inventory = await InventoryAPI.getMyInventory(); // Use InventoryAPI instead
+      setDiamonds(inventory);
     } catch (error) {
-      console.error("Error loading diamonds:", error);
+      console.error('Failed to refresh inventory:', error);
     } finally {
       setLoading(false);
     }
@@ -55,7 +67,7 @@ export default function Inventory() {
       await Diamond.create(diamondData);
       
       // Refresh the diamonds list
-      await loadDiamonds();
+      await refreshInventory();
       
       // Close the dialog
       setShowAddDialog(false);
@@ -72,7 +84,7 @@ export default function Inventory() {
   const handleUpdateDiamond = async (diamondData) => {
     try {
       await Diamond.update(selectedDiamond.id, diamondData);
-      await loadDiamonds();
+      await refreshInventory();
       setShowAddDialog(false);
       setSelectedDiamond(null);
     } catch (error) {
@@ -83,7 +95,7 @@ export default function Inventory() {
   const handleDeleteConfirm = async () => {
     try {
       await Diamond.delete(selectedDiamond.id);
-      await loadDiamonds();
+      await refreshInventory();
       setShowDeleteDialog(false);
       setSelectedDiamond(null);
     } catch (error) {
@@ -182,7 +194,8 @@ export default function Inventory() {
                 >
                   <option value="all">All Status</option>
                   <option value="In Stock">In Stock</option>
-                  <option value="Borrowed">Borrowed</option>
+                  <option value="Memo From">Memo From</option>
+                  <option value="Memo To">Memo To</option>
                   <option value="Sold">Sold</option>
                 </select>
               </div>
@@ -274,8 +287,10 @@ export default function Inventory() {
                             className={
                               diamond.status === "In Stock" 
                                 ? "bg-green-100 text-green-800" 
-                                : diamond.status === "Borrowed"
-                                ? "bg-amber-100 text-amber-800"
+                                : diamond.status === "Memo From"
+                                ? "bg-blue-100 text-blue-800"
+                                : diamond.status === "Memo To"
+                                ? "bg-purple-100 text-purple-800"
                                 : "bg-gray-100 text-gray-800"
                             }
                           >
@@ -347,7 +362,7 @@ export default function Inventory() {
         diamond={selectedDiamond}
         open={showPhotoDialog}
         onOpenChange={setShowPhotoDialog}
-        onPhotoUploaded={loadDiamonds}
+        onPhotoUploaded={refreshInventory}
       />
     </div>
   );

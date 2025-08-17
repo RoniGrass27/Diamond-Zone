@@ -720,6 +720,8 @@ app.post('/api/debug-contract-data', protect, async (req, res) => {
 });
 // End of debugging
 
+app.use('/api/inventory', require('./routes/inventory-routes'));
+
 app.listen(PORT, () => {
   console.log(`Server running at http://localhost:${PORT}`);
   console.log('Available endpoints:');
