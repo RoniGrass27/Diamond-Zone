@@ -202,7 +202,7 @@ export default function Dashboard() {
     if (message.type === 'contract_request') {
       let baseContent = message.content;
       
-      if (message.metadata?.contractType === 'MemoFrom') {
+      if (message.metadata?.contractType === 'MemoFrom' || message.metadata?.contractType === 'MemoTo') {
         if (message.metadata?.duration) {
           baseContent += ` (${message.metadata.duration} days)`;
         }
@@ -213,6 +213,13 @@ export default function Dashboard() {
         baseContent += ` for $${message.metadata.price.toLocaleString()}`;
       }
       
+      return baseContent;
+    } else if (message.type === 'contract_approval') {
+      // For contract approval messages, show the contract number if available
+      let baseContent = message.content;
+      if (message.contractId && message.contractId.contractNumber) {
+        baseContent = baseContent.replace(/contract #(\d+)/, `contract #${String(message.contractId.contractNumber).padStart(3, '0')}`);
+      }
       return baseContent;
     }
     
@@ -320,6 +327,8 @@ export default function Dashboard() {
     switch (type) {
       case 'contract_request':
         return <FileText className="h-5 w-5 text-blue-500" />;
+      case 'contract_approval':
+        return <CheckCircle className="h-5 w-5 text-green-500" />;
       case 'offer_notification':
         return <DollarSign className="h-5 w-5 text-green-500" />;
       default:
@@ -446,15 +455,23 @@ export default function Dashboard() {
                             <Clock className="h-3 w-3" />
                             {/* Updated to show better time formatting */}
                             <span className="font-medium">{formatCompactDate(message.createdAt)}</span>
-                            {message.metadata?.contractType && (
+                            {message.metadata?.contractType && message.type === 'contract_request' && (
                               <>
                                 <span>•</span>
                                 <Badge variant="outline" className="text-xs">
-                                  {message.metadata.contractType === 'MemoFrom' ? 'Memo Request' : message.metadata.contractType}
+                                  {(message.metadata.contractType === 'MemoFrom' || message.metadata.contractType === 'MemoTo') ? 'Memo Request' : message.metadata.contractType}
                                 </Badge>
                               </>
                             )}
-                            {message.metadata?.duration && message.metadata.contractType === 'MemoFrom' && (
+                            {message.type === 'contract_approval' && (
+                              <>
+                                <span>•</span>
+                                <Badge variant="outline" className="text-xs">
+                                  Contract Update
+                                </Badge>
+                              </>
+                            )}
+                            {message.metadata?.duration && (message.metadata.contractType === 'MemoFrom' || message.metadata.contractType === 'MemoTo') && (
                               <>
                                 <span>•</span>
                                 <span>{message.metadata.duration} days</span>

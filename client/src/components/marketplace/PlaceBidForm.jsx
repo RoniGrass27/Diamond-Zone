@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,16 +23,45 @@ import { Contract, Diamond } from "@/api/entities";
 
 export default function PlaceBidForm({ diamond, businessName, open, onOpenChange, onSuccess }) {
   const [formData, setFormData] = useState({
-    type: 'MemoFrom',
+    type: 'MemoTo',
     duration: 30,
     terms: '',
     buyerEmail: '',
     sellerEmail: ''
   });
   const [loading, setLoading] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
+
+  // Load current user on component mount
+  useEffect(() => {
+    const loadCurrentUser = () => {
+      try {
+        const userData = JSON.parse(localStorage.getItem('user'));
+        if (userData && userData.email) {
+          setCurrentUser(userData);
+          // Auto-populate buyer email with current user's email
+          setFormData(prev => ({ ...prev, buyerEmail: userData.email }));
+        }
+      } catch (error) {
+        console.error('Error loading current user:', error);
+      }
+    };
+
+    loadCurrentUser();
+  }, []);
+
+  // Auto-populate seller email when diamond data changes
+  useEffect(() => {
+    if (diamond && diamond.ownerId && diamond.ownerId.email) {
+      setFormData(prev => ({ ...prev, sellerEmail: diamond.ownerId.email }));
+    }
+  }, [diamond]);
 
   const handleChange = (field, value) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    // Only allow changes to duration and terms
+    if (field === 'duration' || field === 'terms') {
+      setFormData(prev => ({ ...prev, [field]: value }));
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -64,7 +93,7 @@ export default function PlaceBidForm({ diamond, businessName, open, onOpenChange
         sellerId: diamond.ownerId?._id || diamond.ownerId,
         buyerEmail: formData.buyerEmail,
         sellerEmail: formData.sellerEmail,
-        type: 'MemoFrom', // Force MemoFrom type for marketplace bidding
+        type: 'MemoTo', // Changed to MemoTo type for marketplace bidding
         duration: formData.duration,
         terms: formData.terms,
         status: 'pending'
@@ -200,18 +229,18 @@ export default function PlaceBidForm({ diamond, businessName, open, onOpenChange
             </div>
           </div>
 
-                     {/* MemoFrom Contract Form */}
-           <div className="space-y-4">
-             <h3 className="text-lg font-semibold">MemoFrom Contract Details</h3>
+          {/* MemoTo Contract Form */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold">MemoTo Contract Details</h3>
             
-                         <div className="grid grid-cols-2 gap-4">
-               <div className="space-y-2">
-                 <Label htmlFor="type">Contract Type</Label>
-                 <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
-                   <p className="text-sm text-blue-800 font-medium">MemoFrom</p>
-                   <p className="text-xs text-blue-600 mt-1">Diamond lending contract</p>
-                 </div>
-               </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="type">Contract Type</Label>
+                <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
+                  <p className="text-sm text-blue-800 font-medium">MemoTo</p>
+                  <p className="text-xs text-blue-600 mt-1">Diamond lending contract</p>
+                </div>
+              </div>
 
               <div className="space-y-2">
                 <Label htmlFor="duration">Duration (days)</Label>
@@ -233,10 +262,11 @@ export default function PlaceBidForm({ diamond, businessName, open, onOpenChange
                 id="buyerEmail"
                 type="email"
                 value={formData.buyerEmail}
-                onChange={(e) => handleChange('buyerEmail', e.target.value)}
-                placeholder="buyer@example.com"
-                required
+                disabled
+                className="bg-gray-100 cursor-not-allowed"
+                placeholder="Automatically filled with your email"
               />
+              <p className="text-xs text-gray-500">Your email (cannot be changed)</p>
             </div>
 
             <div className="space-y-2">
@@ -245,10 +275,11 @@ export default function PlaceBidForm({ diamond, businessName, open, onOpenChange
                 id="sellerEmail"
                 type="email"
                 value={formData.sellerEmail}
-                onChange={(e) => handleChange('sellerEmail', e.target.value)}
-                placeholder="seller@example.com"
-                required
+                disabled
+                className="bg-gray-100 cursor-not-allowed"
+                placeholder="Automatically filled with diamond owner's email"
               />
+              <p className="text-xs text-gray-500">Diamond owner's email (cannot be changed)</p>
             </div>
 
             <div className="space-y-2">
@@ -262,8 +293,6 @@ export default function PlaceBidForm({ diamond, businessName, open, onOpenChange
               />
             </div>
           </div>
-
-
 
           <DialogFooter className="flex gap-2">
             <Button type="button" variant="outline" onClick={handleCancel}>

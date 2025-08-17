@@ -210,12 +210,22 @@ const createContractRequestMessage = async (fromUserId, toUserEmail, contractId,
       ? `#${String(contractData.diamondNumber).padStart(3, '0')}` 
       : 'N/A';
     
+    // Create more descriptive content based on contract type
+    let content = '';
+    if (contractData.type === 'MemoTo') {
+      content = `${fromUser.fullName} wants to borrow your diamond ${diamondDisplay} for ${contractData.duration || 30} days`;
+    } else if (contractData.type === 'MemoFrom') {
+      content = `${fromUser.fullName} wants to lend you diamond ${diamondDisplay} for ${contractData.duration || 30} days`;
+    } else {
+      content = `${fromUser.fullName} has sent you a ${contractData.type.toLowerCase()} contract request for diamond ${diamondDisplay}`;
+    }
+
     const message = new Message({
       type: 'contract_request',
       fromUser: fromUserId,
       toUser: toUser._id,
       title: `New ${contractData.type} Contract Request`,
-      content: `${fromUser.fullName /*|| fromUser.businessName*/} has sent you a ${contractData.type.toLowerCase()} contract request for diamond ${diamondDisplay}`,
+      content: content,
       contractId: contractId,
       diamondId: contractData.diamondId,
       isActionRequired: true,

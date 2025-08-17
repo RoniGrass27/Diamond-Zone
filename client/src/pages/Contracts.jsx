@@ -121,8 +121,8 @@ export default function ContractsPage() {
       setShowCreateDialog(false);
       
       // Show success message with details about what happened
-      if (contractData.type === 'MemoFrom') {
-        toast.success("MemoFrom contract created successfully! Diamond status has been updated and buyer diamond created.");
+      if (contractData.type === 'MemoFrom' || contractData.type === 'MemoTo') {
+        toast.success("Memo contract created successfully! Diamond status has been updated and buyer diamond created.");
       } else {
         toast.success("Contract created successfully!");
       }
@@ -210,6 +210,22 @@ export default function ContractsPage() {
           counterparty: contract.sellerEmail,
           counterpartyName: getUserFullName(contract.sellerEmail),
           isInitiator: false
+        };
+      }
+    } else if (contract.type === 'MemoTo') {
+      if (contract.sellerEmail === userEmail) {
+        return {
+          direction: 'Memo From', // Seller sees "Memo From"
+          counterparty: contract.buyerEmail,
+          counterpartyName: getUserFullName(contract.buyerEmail),
+          isInitiator: false  // Seller is NOT the initiator for MemoTo
+        };
+      } else {
+        return {
+          direction: 'Memo To', // Buyer sees "Memo To"
+          counterparty: contract.sellerEmail,
+          counterpartyName: getUserFullName(contract.sellerEmail),
+          isInitiator: true  // Buyer IS the initiator for MemoTo
         };
       }
     } else if (contract.type === 'Buy') {

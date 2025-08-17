@@ -256,15 +256,21 @@ app.post('/api/contracts', protect, async (req, res) => {
       return res.status(400).json({ error: 'Diamond ID is required' });
     }
 
-    // Verify diamond exists and user owns it
-    const diamond = await Diamond.findOne({ 
-      _id: diamondId, 
-      ownerId: req.user._id 
-    });
+    // Verify diamond exists
+    const diamond = await Diamond.findById(diamondId);
     
     if (!diamond) {
-      console.log('Diamond not found or not owned by user');
-      return res.status(400).json({ error: 'Diamond not found or you do not own this diamond' });
+      console.log('Diamond not found');
+      return res.status(400).json({ error: 'Diamond not found' });
+    }
+
+    // For MemoTo contracts (marketplace bidding), buyer doesn't need to own the diamond
+    // For other contract types, user must own the diamond
+    if (req.body.type !== 'MemoTo') {
+      if (diamond.ownerId.toString() !== req.user._id.toString()) {
+        console.log('Diamond not owned by user');
+        return res.status(400).json({ error: 'You do not own this diamond' });
+      }
     }
 
     console.log('Diamond found:', diamond.diamondNumber);
@@ -273,6 +279,10 @@ app.post('/api/contracts', protect, async (req, res) => {
     let buyerEmail, sellerEmail;
     
     if (req.body.type === 'MemoFrom') {
+      buyerEmail = req.body.buyerEmail || req.body.buyer_email;
+      sellerEmail = req.body.sellerEmail || req.body.seller_email;
+    } else if (req.body.type === 'MemoTo') {
+      // For MemoTo contracts (marketplace bidding), buyer is current user, seller is diamond owner
       buyerEmail = req.body.buyerEmail || req.body.buyer_email;
       sellerEmail = req.body.sellerEmail || req.body.seller_email;
     } else if (req.body.type === 'Buy') {
@@ -337,7 +347,7 @@ app.post('/api/contracts', protect, async (req, res) => {
         price: diamond.price,
         status: diamond.status
       },
-      ownerId: req.user._id,
+      ownerId: req.body.type === 'MemoTo' ? diamond.ownerId : req.user._id,
       buyerEmail: buyerEmail,
       sellerEmail: sellerEmail,
       contractNumber: contractNumber,
@@ -349,7 +359,7 @@ app.post('/api/contracts', protect, async (req, res) => {
     };
 
     // Add type-specific fields
-    if (req.body.type === 'MemoFrom') {
+    if (req.body.type === 'MemoFrom' || req.body.type === 'MemoTo') {
       contractData.duration = req.body.duration || 30;
       contractData.terms = req.body.terms || '';
     }
@@ -380,7 +390,11 @@ app.post('/api/contracts', protect, async (req, res) => {
       let recipientEmail = null;
       
       if (contract.type === 'MemoFrom') {
+        // For MemoFrom: buyer receives notification (buyer needs to approve)
         recipientEmail = contract.buyerEmail;
+      } else if (contract.type === 'MemoTo') {
+        // For MemoTo: seller receives notification (seller needs to approve)
+        recipientEmail = contract.sellerEmail;
       } else if (contract.type === 'Buy') {
         recipientEmail = contract.sellerEmail;
       } else if (contract.type === 'Sell') {
@@ -447,10 +461,10 @@ app.post('/api/contracts/:id/approve', protect, async (req, res) => {
       return res.status(404).json({ error: 'Contract not found' });
     }
 
-    // Ensure the current user is one of the involved parties
+    // Ensure the current user is one of the involved parties and can approve
     const userEmail = req.user.email;
-    const isRecipient = contract.buyerEmail === userEmail || contract.sellerEmail === userEmail;
-    if (!isRecipient) {
+    const canApprove = contract.canApprove(userEmail);
+    if (!canApprove) {
       return res.status(403).json({ error: 'Not authorized to approve this contract' });
     }
 
@@ -459,8 +473,8 @@ app.post('/api/contracts/:id/approve', protect, async (req, res) => {
     contract.approvedAt = new Date();
     await contract.save();
 
-    // Update diamond status for MemoFrom contracts
-    if (contract.type === 'MemoFrom') {
+    // Update diamond status for MemoFrom and MemoTo contracts
+    if (contract.type === 'MemoFrom' || contract.type === 'MemoTo') {
       try {
         await Diamond.findByIdAndUpdate(contract.diamondId, {
           status: 'Memo From' // Seller diamond gets "Memo From" status

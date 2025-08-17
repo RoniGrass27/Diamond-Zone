@@ -32,14 +32,14 @@ export default function Layout({ children }) {
 
   return (
     <div className="min-h-screen flex">
-      {/* Sidebar */}
-      <div className="w-64 bg-white border-r flex flex-col justify-between min-h-screen">
-        <div className="h-16 border-b flex items-center px-6">
+      {/* Fixed Sidebar */}
+      <div className="fixed left-0 top-0 h-screen w-64 bg-white border-r flex flex-col z-50">
+        <div className="h-16 border-b flex items-center px-6 flex-shrink-0">
           <Diamond className="h-6 w-6 text-sky-500" />
           <span className="ml-2 font-semibold text-lg">Diamond Zone</span>
         </div>
         
-        <nav className="flex-1 p-4">
+        <nav className="flex-1 p-4 overflow-y-auto">
           <div className="space-y-2">
             <Link to="/dashboard">
               <Button variant="ghost" className="w-full justify-start">
@@ -68,7 +68,7 @@ export default function Layout({ children }) {
           </div>
         </nav>
 
-        <div className="p-4 space-y-2">
+        <div className="p-4 space-y-2 flex-shrink-0">
           <Button variant="ghost" className="w-full justify-start">
             <Settings className="mr-2 h-4 w-4" />
             Settings
@@ -84,8 +84,8 @@ export default function Layout({ children }) {
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="flex-1 bg-gray-50">
+      {/* Main Content with left margin to account for fixed sidebar */}
+      <div className="flex-1 bg-gray-50 ml-64">
         {children}
       </div>
     </div>

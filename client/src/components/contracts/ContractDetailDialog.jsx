@@ -169,6 +169,22 @@ export default function ContractDetailDialog({
           isInitiator: false
         };
       }
+    } else if (contract.type === 'MemoTo') {
+      if (contract.sellerEmail === userEmail) {
+        return {
+          direction: 'Memo From', // Seller sees "Memo From"
+          counterparty: contract.buyerEmail,
+          counterpartyName: getUserFullName(contract.buyerEmail),
+          isInitiator: false  // Seller is NOT the initiator for MemoTo
+        };
+      } else {
+        return {
+          direction: 'Memo To', // Buyer sees "Memo To"
+          counterparty: contract.sellerEmail,
+          counterpartyName: getUserFullName(contract.sellerEmail),
+          isInitiator: true  // Buyer IS the initiator for MemoTo
+        };
+      }
     } else if (contract.type === 'Buy') {
       if (contract.buyerEmail === userEmail) {
         return {
@@ -232,7 +248,9 @@ export default function ContractDetailDialog({
     const userEmail = currentUser.email;
     
     if (contract.type === 'MemoFrom') {
-      return contract.buyerEmail === userEmail;
+      return contract.buyerEmail === userEmail; // Buyer approves MemoFrom
+    } else if (contract.type === 'MemoTo') {
+      return contract.sellerEmail === userEmail; // Seller approves MemoTo
     } else if (contract.type === 'Buy') {
       return contract.sellerEmail === userEmail;
     } else if (contract.type === 'Sell') {
@@ -293,8 +311,8 @@ export default function ContractDetailDialog({
             </Badge>
           </DialogTitle>
           <DialogDescription>
-            {/* Updated to show creation time */}
-            {displayInfo.direction} • Created {formatDateTimeDisplay(contract.createdDate)}
+            {/* Fixed: Use the same working function as the contracts table */}
+            {displayInfo.direction} • Created {formatContractDateTime(contract.createdDate)}
           </DialogDescription>
         </DialogHeader>
 
@@ -383,7 +401,7 @@ export default function ContractDetailDialog({
                 <div className="ml-2">
                   <div className="font-medium">{formatContractDate(contract.createdDate)}</div>
                   <div className="text-xs text-gray-400">
-                    at {formatTimeOnly(contract.createdDate)}
+                    at {formatContractDateTime(contract.createdDate).split('at ')[1]}
                   </div>
                 </div>
               </div>
@@ -404,7 +422,7 @@ export default function ContractDetailDialog({
                   <div className="ml-2">
                     <div className="font-medium">{formatContractDate(contract.approvedAt)}</div>
                     <div className="text-xs text-gray-400">
-                      at {formatTimeOnly(contract.approvedAt)}
+                      at {formatContractDateTime(contract.approvedAt).split('at ')[1]}
                     </div>
                   </div>
                 </div>
@@ -416,7 +434,7 @@ export default function ContractDetailDialog({
                   <div className="ml-2">
                     <div className="font-medium">{formatContractDate(contract.rejectedAt)}</div>
                     <div className="text-xs text-gray-400">
-                      at {formatTimeOnly(contract.rejectedAt)}
+                      at {formatContractDateTime(contract.rejectedAt).split('at ')[1]}
                     </div>
                   </div>
                 </div>
@@ -480,8 +498,8 @@ export default function ContractDetailDialog({
             </div>
           )}
 
-          {/* Return Diamond Button for MemoFrom Contracts */}
-          {contract.type === 'MemoFrom' && contract.status === 'approved' && (
+                          {/* Return Diamond Button for MemoFrom and MemoTo Contracts */}
+                {(contract.type === 'MemoFrom' || contract.type === 'MemoTo') && contract.status === 'approved' && (
             <div className="flex gap-3 pt-4 border-t">
               <Button
                 onClick={() => handleReturnDiamond(contract)}

@@ -186,8 +186,8 @@ export default function ContractForm({ onSubmit, onCancel, diamonds }) {
 
       setEmailError('');
 
-      // Handle MemoFrom contracts (diamond lending)
-      if (formData.type === 'MemoFrom') {
+      // Handle MemoFrom and MemoTo contracts (diamond lending)
+      if (formData.type === 'MemoFrom' || formData.type === 'MemoTo') {
         // Validate that the selected diamond is available
         const selectedDiamond = diamonds.find(d => d.id === formData.diamond_id);
         if (!selectedDiamond) {
@@ -211,10 +211,10 @@ export default function ContractForm({ onSubmit, onCancel, diamonds }) {
       const contractData = {
         diamondId: formData.diamond_id,
         price: (formData.type === 'Buy' || formData.type === 'Sell') ? formData.price : null,
-        buyerEmail: (formData.type === 'Buy' || formData.type === 'MemoFrom')
+        buyerEmail: (formData.type === 'Buy' || formData.type === 'MemoFrom' || formData.type === 'MemoTo')
           ? formData.buyer_email
           : currentUser?.email,
-        sellerEmail: (formData.type === 'Sell' || formData.type === 'MemoFrom')
+        sellerEmail: (formData.type === 'Sell' || formData.type === 'MemoFrom' || formData.type === 'MemoTo')
           ? currentUser?.email
           : formData.buyer_email,
         expirationDate: formData.expiration_date,
@@ -247,7 +247,7 @@ export default function ContractForm({ onSubmit, onCancel, diamonds }) {
     return diamonds.find(d => d.id === formData.diamond_id);
   };
 
-  const isMemoFromContract = formData.type === 'MemoFrom';
+  const isMemoFromContract = formData.type === 'MemoFrom' || formData.type === 'MemoTo';
 
   return (
     <Dialog open={true} onOpenChange={onCancel}>
@@ -274,6 +274,10 @@ export default function ContractForm({ onSubmit, onCancel, diamonds }) {
                   <Label htmlFor="memoFrom">Memo from</Label>
                 </div>
                 <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="MemoTo" id="memoTo" />
+                  <Label htmlFor="memoTo">Memo to</Label>
+                </div>
+                <div className="flex items-center space-x-2">
                   <RadioGroupItem value="Buy" id="buy" />
                   <Label htmlFor="buy">Buy</Label>
                 </div>
@@ -297,8 +301,8 @@ export default function ContractForm({ onSubmit, onCancel, diamonds }) {
                 <SelectContent>
                   {diamonds
                     .filter(diamond => {
-                      // For MemoFrom contracts, only show diamonds that are "In Stock"
-                      if (formData.type === 'MemoFrom') {
+                      // For MemoFrom and MemoTo contracts, only show diamonds that are "In Stock"
+                      if (formData.type === 'MemoFrom' || formData.type === 'MemoTo') {
                         return diamond.status === "In Stock";
                       }
                       // For Buy contracts, only show diamonds with displayStatus "Memo To"
@@ -315,7 +319,7 @@ export default function ContractForm({ onSubmit, onCancel, diamonds }) {
                     .map(diamond => (
                       <SelectItem key={diamond.id} value={diamond.id}>
                         {`#${String(diamond.diamondNumber).padStart(3, '0')}` || `Diamond #${diamond.id.slice(0, 4)}`} - {diamond.carat}ct
-                        {formData.type === 'MemoFrom' && diamond.status !== "In Stock" && (
+                        {(formData.type === 'MemoFrom' || formData.type === 'MemoTo') && diamond.status !== "In Stock" && (
                           <span className="text-red-500 ml-2">({diamond.status})</span>
                         )}
                         {formData.type === 'Buy' && (diamond.displayStatus || diamond.status) !== "Memo To" && (
