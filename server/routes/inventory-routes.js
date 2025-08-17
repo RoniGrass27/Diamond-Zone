@@ -21,14 +21,14 @@ router.get('/my-inventory', protect, async (req, res) => {
     // Get APPROVED memo contracts where user is the buyer (to show diamonds they can access)
     const buyerContracts = await Contract.find({
       buyerEmail: userEmail,
-      type: 'MemoFrom',
+      type: { $in: ['MemoFrom', 'MemoTo'] },
       status: 'approved'
     });
 
     // Get APPROVED memo contracts where user is the seller (to show diamonds they've lent out)
     const sellerContracts = await Contract.find({
       sellerEmail: userEmail,
-      type: 'MemoFrom',
+      type: { $in: ['MemoFrom', 'MemoTo'] },
       status: 'approved'
     });
 
@@ -75,7 +75,7 @@ router.get('/my-inventory', protect, async (req, res) => {
           accessType: 'contract',
           displayStatus: 'Memo To', // Always "Memo To" for buyers (same as displayInfo.direction)
           contractId: contract._id,
-          contractType: contract.type, // This stays as "MemoFrom"
+          contractType: contract.type, // This will be "MemoFrom" or "MemoTo"
           contractNumber: contract.contractNumber,
           duration: contract.duration,
           terms: contract.terms,
@@ -116,7 +116,7 @@ router.post('/approve-contract/:contractId', protect, async (req, res) => {
     await contract.save();
 
     // Update diamond status to "Memo From" only after approval
-    if (contract.type === 'MemoFrom') {
+    if (contract.type === 'MemoFrom' || contract.type === 'MemoTo') {
       await Diamond.findByIdAndUpdate(contract.diamondId, {
         status: 'Memo From'
       });

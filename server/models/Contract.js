@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const ContractSchema = new mongoose.Schema({
   type: {
     type: String,
-    enum: ['MemoFrom', 'Buy', 'Sell'],
+    enum: ['MemoFrom', 'MemoTo', 'Buy', 'Sell'],
     required: true
   },
   diamondId: {
@@ -76,18 +76,16 @@ const ContractSchema = new mongoose.Schema({
   duration: {
     type: Number,
     required: function() {
-      return this.type === 'MemoFrom';
+      return this.type === 'MemoFrom' || this.type === 'MemoTo';
     },
     default: function() {
-      return this.type === 'MemoFrom' ? 30 : undefined;
+      return (this.type === 'MemoFrom' || this.type === 'MemoTo') ? 30 : undefined;
     }
   },
   terms: {
     type: String,
     default: '',
-    required: function() {
-      return this.type === 'MemoFrom';
-    }
+    required: false // Remove the required validation since we have a default value
   },
   blockchain_enabled: {
     type: Boolean,
@@ -110,7 +108,7 @@ ContractSchema.pre('save', function(next) {
 
 // Method to get the counterparty email based on current user
 ContractSchema.methods.getCounterpartyEmail = function(currentUserEmail) {
-  if (this.type === 'MemoFrom') {
+  if (this.type === 'MemoFrom' || this.type === 'MemoTo') {
     return currentUserEmail === this.sellerEmail ? this.buyerEmail : this.sellerEmail;
   } else if (this.type === 'Buy') {
     return currentUserEmail === this.buyerEmail ? this.sellerEmail : this.buyerEmail;
@@ -123,7 +121,11 @@ ContractSchema.methods.getCounterpartyEmail = function(currentUserEmail) {
 // Method to check if current user can approve this contract
 ContractSchema.methods.canApprove = function(currentUserEmail) {
   if (this.type === 'MemoFrom') {
+    // For MemoFrom: buyer approves (buyer is the one who will use the diamond)
     return this.buyerEmail === currentUserEmail;
+  } else if (this.type === 'MemoTo') {
+    // For MemoTo: seller approves (seller owns the diamond and must approve the lending)
+    return this.sellerEmail === currentUserEmail;
   } else if (this.type === 'Buy') {
     return this.sellerEmail === currentUserEmail;
   } else if (this.type === 'Sell') {
@@ -137,7 +139,7 @@ ContractSchema.methods.getDisplayInfo = function(currentUserEmail) {
   let direction = '';
   let counterparty = '';
   
-  if (this.type === 'MemoFrom') {
+  if (this.type === 'MemoFrom' || this.type === 'MemoTo') {
     if (this.sellerEmail === currentUserEmail) {
       direction = 'Memo From'; // Seller sees "Memo From"
       counterparty = this.buyerEmail;
