@@ -102,11 +102,11 @@ export default function Inventory() {
   };
 
   const exportToCsv = () => {
-    const headers = ['Diamond #', 'Photo', 'Weight', 'Shape', 'Color', 'Clarity', 'Cut', 'Polish', 'Symmetry', 'UV', 'Status', 'Price'];
+    const headers = ['Diamond #', 'Weight', 'Shape', 'Color', 'Clarity', 'Cut', 'Polish', 'Symmetry', 'UV', 'Status', 'Price'];
     const csvContent = "data:text/csv;charset=utf-8," + 
       headers.join(',') + "\n" +
       diamonds.map(d => 
-        `${d.diamondNumber || ''},${d.photo ? 'Yes' : 'No'},${d.carat || ''},${d.shape || ''},${d.color || ''},${d.clarity || ''},` +
+        `${d.diamondNumber || ''},${d.carat || ''},${d.shape || ''},${d.color || ''},${d.clarity || ''},` +
         `${d.cut || ''},${d.polish || ''},${d.symmetry || ''},${d.uv || ''},${d.status || ''},${d.price || ''}`
       ).join("\n");
 
@@ -215,7 +215,7 @@ export default function Inventory() {
                   <thead className="bg-gray-50">
                     <tr>
                       <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Diamond #</th>
-                      <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Photo</th>
+
                       <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Weight (carats)</th>
                       <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Shape</th>
                       <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Color</th>
@@ -244,28 +244,7 @@ export default function Inventory() {
                             </div>
                           </div>
                         </td>
-                        <td className="px-4 py-4 whitespace-nowrap">
-                          {diamond.photo ? (
-                            <div className="flex-shrink-0 h-12 w-12 rounded-lg overflow-hidden border">
-                              <img 
-                                src={diamond.photo} 
-                                alt={`Diamond ${diamond.diamondNumber || diamond.id}`}
-                                className="h-full w-full object-cover"
-                                onError={(e) => {
-                                  e.target.style.display = 'none';
-                                  e.target.nextSibling.style.display = 'flex';
-                                }}
-                              />
-                              <div className="h-full w-full bg-gray-100 flex items-center justify-center" style={{display: 'none'}}>
-                                <DiamondIcon className="h-6 w-6 text-gray-400" />
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="flex-shrink-0 h-12 w-12 bg-gray-100 rounded-lg flex items-center justify-center">
-                              <DiamondIcon className="h-6 w-6 text-gray-400" />
-                            </div>
-                          )}
-                        </td>
+
                         <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
                           {diamond.carat}
                         </td>

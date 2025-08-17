@@ -27,6 +27,26 @@ export const Diamond = {
       id: d._id 
     }));
   },
+
+  listAll: async () => {
+    const response = await fetch('/api/diamonds/all', {
+      headers: getAuthHeaders()
+    });
+    if (!response.ok) {
+      if (response.status === 401) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        window.location.href = '/login';
+        return;
+      }
+      throw new Error("Failed to fetch all diamonds");
+    }
+    const data = await response.json();
+    return data.map(d => ({
+      ...d,
+      id: d._id 
+    }));
+  },
   
   create: async (data) => {
     const response = await fetch('/api/diamonds', {
@@ -78,6 +98,7 @@ export const Diamond = {
       }
       throw new Error("Failed to delete diamond");
     }
+    return response.json();
   },
 
   updatePhoto: async (id, photoUrl) => {

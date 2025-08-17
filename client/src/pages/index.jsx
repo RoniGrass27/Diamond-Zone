@@ -4,6 +4,7 @@ import ProtectedRoute from "../components/ProtectedRoute.jsx";
 import Dashboard from "./Dashboard";
 import Contracts from "./Contracts";
 import Inventory from "./Inventory";
+import Marketplace from "./Marketplace";
 import Login from "./Login";
 import Signup from "./Signup";
 
@@ -13,6 +14,7 @@ const PAGES = {
     Dashboard: Dashboard,
     Contracts: Contracts,
     Inventory: Inventory,
+    Marketplace: Marketplace,
 }
 
 function _getCurrentPage(url) {
@@ -59,6 +61,8 @@ function PagesContent() {
                     <Route path="/Contracts" element={<Contracts />} />
                     <Route path="/inventory" element={<Inventory />} />
                     <Route path="/Inventory" element={<Inventory />} />
+                    <Route path="/marketplace" element={<Marketplace />} />
+                    <Route path="/Marketplace" element={<Marketplace />} />
                 </Routes>
             </Layout>
         </ProtectedRoute>

@@ -106,6 +106,41 @@ app.get('/api/diamonds', protect, async (req, res) => {
   }
 });
 
+// Test route to see if routes are being registered
+app.get('/api/test-marketplace', (req, res) => {
+  console.log('=== TEST ROUTE HIT ===');
+  res.json({ message: 'Test marketplace route works!' });
+});
+
+// Marketplace route - get all diamonds for marketplace display
+app.get('/api/diamonds/all', protect, async (req, res) => {
+  try {
+    console.log('Marketplace request received from user:', req.user.email);
+    
+    // Get only "In Stock" diamonds from all users for marketplace display
+    const diamonds = await Diamond.find({ status: 'In Stock' })
+      .populate('ownerId', 'fullName businessName email')
+      .sort({ createdAt: -1 });
+    
+    console.log(`Marketplace: Found ${diamonds.length} diamonds in stock`);
+    
+    // Log first few diamonds for debugging
+    if (diamonds.length > 0) {
+      console.log('Sample diamond:', {
+        id: diamonds[0]._id,
+        diamondNumber: diamonds[0].diamondNumber,
+        status: diamonds[0].status,
+        ownerId: diamonds[0].ownerId
+      });
+    }
+    
+    res.json(diamonds);
+  } catch (error) {
+    console.error('Marketplace error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.post('/api/diamonds', protect, async (req, res) => {
   try {
     console.log('Creating diamond with payload size:', JSON.stringify(req.body).length, 'characters');
