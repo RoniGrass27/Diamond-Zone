@@ -418,3 +418,21 @@ export const Message = {
     return response.json();
   }
 };
+
+export const Inventory = {
+  getMyInventory: async () => {
+    const response = await fetch('/api/inventory/my-inventory', {
+      headers: getAuthHeaders()
+    });
+    if (!response.ok) {
+      if (response.status === 401) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        window.location.href = '/login';
+        return;
+      }
+      throw new Error("Failed to fetch inventory");
+    }
+    return response.json();
+  }
+};

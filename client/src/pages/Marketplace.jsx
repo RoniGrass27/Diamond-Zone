@@ -82,7 +82,7 @@ export default function Marketplace() {
         (diamond.shape && diamond.shape.toLowerCase().includes(searchQuery.toLowerCase())) ||
         (diamond.color && diamond.color.toLowerCase().includes(searchQuery.toLowerCase()));
       
-      const matchesStatus = diamond.status === filterStatus;
+      const matchesStatus = diamond.status === "In Stock"; // Only show diamonds that are available for bidding
       
       return matchesSearch && matchesStatus;
     })
@@ -214,7 +214,18 @@ export default function Marketplace() {
                           <h3 className="font-semibold text-lg">
                             Diamond {diamond.diamondNumber || diamond.id?.substring(0, 3)}
                           </h3>
-                          <Badge variant="secondary" className="text-xs">
+                          <Badge 
+                            variant="secondary" 
+                            className={`text-xs ${
+                              diamond.status === "In Stock" 
+                                ? "bg-green-100 text-green-800" 
+                                : diamond.status === "Memo From"
+                                ? "bg-blue-100 text-blue-800"
+                                : diamond.status === "Memo To"
+                                ? "bg-purple-100 text-purple-800"
+                                : "bg-gray-100 text-gray-800"
+                            }`}
+                          >
                             {diamond.status || "In Stock"}
                           </Badge>
                         </div>
@@ -252,9 +263,14 @@ export default function Marketplace() {
                               e.stopPropagation();
                               handlePlaceBid(diamond);
                             }}
-                            className="bg-sky-500 hover:bg-sky-600"
+                            disabled={diamond.status !== "In Stock"}
+                            className={`${
+                              diamond.status === "In Stock" 
+                                ? "bg-sky-500 hover:bg-sky-600" 
+                                : "bg-gray-300 cursor-not-allowed"
+                            }`}
                           >
-                            Place a Bid
+                            {diamond.status === "In Stock" ? "Place a Bid" : "Not Available"}
                           </Button>
                         </div>
                       </div>
@@ -291,6 +307,7 @@ export default function Marketplace() {
           onSuccess={() => {
             setShowBidForm(false);
             setSelectedDiamond(null);
+            loadMarketplaceData(); // Refresh the marketplace data to show status changes
           }}
         />
       )}

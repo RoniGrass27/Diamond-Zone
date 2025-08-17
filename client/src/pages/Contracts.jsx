@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Search, Plus, QrCode, FileText, Clock, User as UserIcon, Eye } from "lucide-react";
 import { format } from "date-fns";
+import { toast } from "react-toastify";
 import { 
   formatContractDate, 
   formatContractDateTime, // Added this import
@@ -99,12 +100,21 @@ export default function ContractsPage() {
       
       console.log('Contract creation result:', result);
       
+      // Refresh both contracts and diamonds data to show updated statuses
       await loadData();
       setShowCreateDialog(false);
+      
+      // Show success message with details about what happened
+      if (contractData.type === 'MemoFrom') {
+        toast.success("MemoFrom contract created successfully! Diamond status has been updated and buyer diamond created.");
+      } else {
+        toast.success("Contract created successfully!");
+      }
       
       return { success: true };
     } catch (error) {
       console.error("Error creating contract:", error);
+      toast.error("Failed to create contract. Please try again.");
       return { error: error.message || 'Failed to create contract' };
     }
   };
@@ -173,14 +183,14 @@ export default function ContractsPage() {
     if (contract.type === 'MemoFrom') {
       if (contract.sellerEmail === userEmail) {
         return {
-          direction: 'Memo To',
+          direction: 'Memo From', // Seller sees "Memo From"
           counterparty: contract.buyerEmail,
           counterpartyName: getUserFullName(contract.buyerEmail),
           isInitiator: true
         };
       } else {
         return {
-          direction: 'Memo From',
+          direction: 'Memo To', // Buyer sees "Memo To"
           counterparty: contract.sellerEmail,
           counterpartyName: getUserFullName(contract.sellerEmail),
           isInitiator: false
