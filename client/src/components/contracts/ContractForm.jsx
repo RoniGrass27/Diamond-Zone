@@ -287,13 +287,6 @@ export default function ContractForm({ onSubmit, onCancel, diamonds }) {
             {/* Diamond Selection */}
             <div>
               <Label htmlFor="diamond">Select Diamond</Label>
-              {formData.type === 'MemoFrom' && (
-                <div className="mb-2 p-2 bg-blue-50 border border-blue-200 rounded-md">
-                  <p className="text-sm text-blue-800">
-                    ℹ️ MemoFrom contracts will update the diamond status and give the buyer access through the contract.
-                  </p>
-                </div>
-              )}
               <Select
                 value={formData.diamond_id}
                 onValueChange={(value) => handleChange('diamond_id', value)}
@@ -308,6 +301,14 @@ export default function ContractForm({ onSubmit, onCancel, diamonds }) {
                       if (formData.type === 'MemoFrom') {
                         return diamond.status === "In Stock";
                       }
+                      // For Buy contracts, only show diamonds with displayStatus "Memo To"
+                      if (formData.type === 'Buy') {
+                        return (diamond.displayStatus || diamond.status) === "Memo To";
+                      }
+                      // For Sell contracts, show diamonds with displayStatus "Memo From" or status "In Stock"
+                      if (formData.type === 'Sell') {
+                        return (diamond.displayStatus || diamond.status) === "Memo From" || diamond.status === "In Stock";
+                      }
                       // For other contract types, show all diamonds
                       return true;
                     })
@@ -316,6 +317,12 @@ export default function ContractForm({ onSubmit, onCancel, diamonds }) {
                         {`#${String(diamond.diamondNumber).padStart(3, '0')}` || `Diamond #${diamond.id.slice(0, 4)}`} - {diamond.carat}ct
                         {formData.type === 'MemoFrom' && diamond.status !== "In Stock" && (
                           <span className="text-red-500 ml-2">({diamond.status})</span>
+                        )}
+                        {formData.type === 'Buy' && (diamond.displayStatus || diamond.status) !== "Memo To" && (
+                          <span className="text-red-500 ml-2">({diamond.displayStatus || diamond.status})</span>
+                        )}
+                        {formData.type === 'Sell' && (diamond.displayStatus || diamond.status) !== "Memo From" && diamond.status !== "In Stock" && (
+                          <span className="text-red-500 ml-2">({diamond.displayStatus || diamond.status})</span>
                         )}
                       </SelectItem>
                     ))}

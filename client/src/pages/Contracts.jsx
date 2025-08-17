@@ -44,11 +44,27 @@ export default function ContractsPage() {
 
   const loadData = async () => {
     try {
-      const [contractsData, diamondsData, usersData] = await Promise.all([
+      const [contractsData, usersData] = await Promise.all([
         Contract.list(),
-        Diamond.list(),
         fetchAllUsers()
       ]);
+      
+      // Load diamonds with display status for contracts
+      const token = localStorage.getItem('token');
+      const diamondsResponse = await fetch('/api/inventory/my-inventory', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      let diamondsData = [];
+      if (diamondsResponse.ok) {
+        diamondsData = await diamondsResponse.json();
+      } else {
+        console.error('Failed to fetch diamonds for contracts');
+      }
+      
       setContracts(contractsData);
       setDiamonds(diamondsData);
       setUsers(usersData || []);
