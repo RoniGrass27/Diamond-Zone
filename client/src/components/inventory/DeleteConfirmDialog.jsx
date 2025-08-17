@@ -8,30 +8,65 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 
 export default function DeleteConfirmDialog({ open, onOpenChange, onConfirm, diamond }) {
   if (!diamond) return null;
 
+  const canDelete = (diamond.displayStatus || diamond.status) === "In Stock";
+  const status = diamond.displayStatus || diamond.status || "In Stock";
+
+  const handleClose = () => {
+    onOpenChange(false);
+  };
+
+  const handleOpenChange = (newOpen) => {
+    if (!newOpen) {
+      onOpenChange(false);
+    }
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>Confirm Deletion</DialogTitle>
           <DialogDescription>
-            Are you sure you want to delete the diamond {" "}
-            <span className="font-semibold">{diamond.diamondNumber 
-                                ? `#${String(diamond.diamondNumber).padStart(3, '0')}` 
-                                : `${diamond.id.substring(0, 3)}`}</span>?
-            This action cannot be undone.
+            {canDelete ? (
+              <>
+                Are you sure you want to delete the diamond {" "}
+                <span className="font-semibold">
+                  {diamond.diamondNumber 
+                    ? `#${String(diamond.diamondNumber).padStart(3, '0')}` 
+                    : `${diamond.id.substring(0, 3)}`}
+                </span>?
+                This action cannot be undone.
+              </>
+            ) : (
+              <>
+                Cannot delete diamond {" "}
+                <span className="font-semibold">
+                  {diamond.diamondNumber 
+                    ? `#${String(diamond.diamondNumber).padStart(3, '0')}` 
+                    : `${diamond.id.substring(0, 3)}`}
+                </span>
+                {" "}because it has status: {" "}
+                <Badge className="ml-1">
+                  {status}
+                </Badge>
+              </>
+            )}
           </DialogDescription>
         </DialogHeader>
         <DialogFooter className="pt-4">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
+          <Button variant="outline" onClick={handleClose}>
+            {canDelete ? "Cancel" : "Close"}
           </Button>
-          <Button variant="destructive" onClick={onConfirm}>
-            Delete
-          </Button>
+          {canDelete && (
+            <Button variant="destructive" onClick={onConfirm}>
+              Delete
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

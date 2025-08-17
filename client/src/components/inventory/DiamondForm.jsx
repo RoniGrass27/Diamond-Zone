@@ -34,6 +34,13 @@ export default function DiamondForm({ diamond, onSubmit, onCancel }) {
     photo: diamond?.photo || ''
   });
 
+  // Ensure status is always "In Stock" for new diamonds
+  React.useEffect(() => {
+    if (!diamond) {
+      setFormData(prev => ({ ...prev, status: 'In Stock' }));
+    }
+  }, [diamond]);
+
   const [currentTab, setCurrentTab] = useState("basic");
   const [photoFile, setPhotoFile] = useState(null);
   const [photoPreview, setPhotoPreview] = useState(diamond?.photo || '');
@@ -353,9 +360,10 @@ export default function DiamondForm({ diamond, onSubmit, onCancel }) {
                     <Select
                       value={formData.status}
                       onValueChange={(value) => handleChange('status', value)}
+                      disabled={!diamond} // Disable for new diamonds
                     >
-                      <SelectTrigger id="status">
-                        <SelectValue placeholder="Select status" />
+                      <SelectTrigger id="status" className={!diamond ? "opacity-50 cursor-not-allowed" : ""}>
+                        <SelectValue placeholder={diamond ? "Select status" : "In Stock"} />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="In Stock">In Stock</SelectItem>
