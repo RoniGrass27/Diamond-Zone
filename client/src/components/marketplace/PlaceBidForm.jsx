@@ -82,7 +82,7 @@ export default function PlaceBidForm({ diamond, businessName, open, onOpenChange
       
       try {
         const updateResult = await Diamond.update(diamondId, { 
-          status: 'Memo From',
+          status: 'Memo From', // Seller diamond gets "Memo From" status
           contractId: contract.id || contract._id,
           memoType: 'Memo From'
         });
@@ -107,10 +107,10 @@ export default function PlaceBidForm({ diamond, businessName, open, onOpenChange
         uv: diamond.uv,
         price: diamond.price,
         photo: diamond.photo,
-        status: 'Memo To',
-        ownerId: formData.buyerEmail, // This will be updated when we have proper user management
+        status: 'Memo To', // Buyer diamond gets "Memo To" status
+        ownerId: formData.buyerEmail,
         contractId: contract.id || contract._id,
-        originalDiamondId: diamond.id, // Link back to the original diamond
+        originalDiamondId: diamond.id,
         memoType: 'Memo To'
       };
       

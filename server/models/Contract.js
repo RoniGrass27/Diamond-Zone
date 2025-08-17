@@ -139,10 +139,10 @@ ContractSchema.methods.getDisplayInfo = function(currentUserEmail) {
   
   if (this.type === 'MemoFrom') {
     if (this.sellerEmail === currentUserEmail) {
-      direction = 'Memo To';
+      direction = 'Memo From'; // Seller sees "Memo From"
       counterparty = this.buyerEmail;
     } else {
-      direction = 'Memo From';
+      direction = 'Memo To'; // Buyer sees "Memo To"
       counterparty = this.sellerEmail;
     }
   } else if (this.type === 'Buy') {

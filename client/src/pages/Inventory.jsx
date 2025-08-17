@@ -138,7 +138,7 @@ export default function Inventory() {
     
     const matchesStatus = 
       filterStatus === "all" || 
-      diamond.status === filterStatus;
+      (diamond.displayStatus || diamond.status) === filterStatus;
     
     return matchesSearch && matchesStatus;
   });
@@ -243,8 +243,8 @@ export default function Inventory() {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {filteredDiamonds.map((diamond) => (
-                      <tr key={diamond.id}>
+                    {filteredDiamonds.map((diamond, index) => (
+                      <tr key={diamond.id || `diamond-${index}`}>
                         <td className="px-4 py-4 whitespace-nowrap">
                           <div className="flex items-center">
                             <div className="flex-shrink-0 h-8 w-8 bg-gray-100 rounded-full flex items-center justify-center">
@@ -285,16 +285,16 @@ export default function Inventory() {
                         <td className="px-4 py-4 whitespace-nowrap">
                           <Badge
                             className={
-                              diamond.status === "In Stock" 
+                              (diamond.displayStatus || diamond.status) === "In Stock" 
                                 ? "bg-green-100 text-green-800" 
-                                : diamond.status === "Memo From"
+                                : (diamond.displayStatus || diamond.status) === "Memo From"
                                 ? "bg-blue-100 text-blue-800"
-                                : diamond.status === "Memo To"
+                                : (diamond.displayStatus || diamond.status) === "Memo To"
                                 ? "bg-purple-100 text-purple-800"
                                 : "bg-gray-100 text-gray-800"
                             }
                           >
-                            {diamond.status || "In Stock"}
+                            {diamond.displayStatus || diamond.status || "In Stock"}
                           </Badge>
                         </td>
                         <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">

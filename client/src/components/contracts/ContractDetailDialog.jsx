@@ -156,14 +156,14 @@ export default function ContractDetailDialog({
     if (contract.type === 'MemoFrom') {
       if (contract.sellerEmail === userEmail) {
         return {
-          direction: 'Memo To',
+          direction: 'Memo From', // Seller sees "Memo From"
           counterparty: contract.buyerEmail,
           counterpartyName: getUserFullName(contract.buyerEmail),
           isInitiator: true
         };
       } else {
         return {
-          direction: 'Memo From',
+          direction: 'Memo To', // Buyer sees "Memo To"
           counterparty: contract.sellerEmail,
           counterpartyName: getUserFullName(contract.sellerEmail),
           isInitiator: false

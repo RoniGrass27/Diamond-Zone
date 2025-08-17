@@ -202,21 +202,9 @@ export default function ContractForm({ onSubmit, onCancel, diamonds }) {
           return;
         }
 
-        // Update the diamond status to "Memo From" (no duplication)
-        try {
-          await Diamond.update(selectedDiamond.id, { 
-            status: 'Memo From',
-            memoType: 'Memo From'
-          });
-          console.log('Diamond status updated to Memo From');
-        } catch (updateError) {
-          console.error('Failed to update diamond status:', updateError);
-          alert('Failed to update diamond status. Please try again.');
-          setLoading(false);
-          return;
-        }
-
-        // No diamond duplication - the buyer will access this diamond through the contract
+        // DON'T update the diamond status here - wait for contract approval
+        // The status will remain "In Stock" until the contract is approved
+        console.log('Diamond status will remain "In Stock" until contract approval');
       }
 
       // Create the main contract

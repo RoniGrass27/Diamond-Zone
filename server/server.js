@@ -455,6 +455,19 @@ app.post('/api/contracts/:id/approve', protect, async (req, res) => {
     contract.approvedAt = new Date();
     await contract.save();
 
+    // Update diamond status for MemoFrom contracts
+    if (contract.type === 'MemoFrom') {
+      try {
+        await Diamond.findByIdAndUpdate(contract.diamondId, {
+          status: 'Memo From' // Seller diamond gets "Memo From" status
+        });
+        console.log('Diamond status updated to "Memo From" after contract approval');
+      } catch (diamondUpdateError) {
+        console.error('Failed to update diamond status:', diamondUpdateError);
+        // Continue even if diamond update fails
+      }
+    }
+
     // Notify the contract creator
     try {
       const creator = await User.findById(contract.ownerId);
