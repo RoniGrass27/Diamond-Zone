@@ -147,11 +147,15 @@ app.post('/api/diamonds', protect, async (req, res) => {
     
     const diamondNumber = await getNextDiamondNumber();
 
-    const diamond = new Diamond({
+    // Always set status to "In Stock" for new diamonds
+    const diamondData = {
       ...req.body,
+      status: 'In Stock', // Force status to "In Stock" for new diamonds
       diamondNumber,
       ownerId: req.user._id // Associate with current user
-    });
+    };
+
+    const diamond = new Diamond(diamondData);
 
     await diamond.save();
     console.log('Diamond created successfully with ID:', diamond._id);

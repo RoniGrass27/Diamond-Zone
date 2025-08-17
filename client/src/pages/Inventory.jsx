@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/components/ui/use-toast";
 import { 
   Search, 
   Plus, 
@@ -32,6 +33,7 @@ export default function Inventory() {
   const [showPhotoDialog, setShowPhotoDialog] = useState(false);
   const [selectedDiamond, setSelectedDiamond] = useState(null);
   const [filterStatus, setFilterStatus] = useState("all");
+  const { toast } = useToast();
 
   useEffect(() => {
     const fetchInventory = async () => {
@@ -94,12 +96,22 @@ export default function Inventory() {
 
   const handleDeleteConfirm = async () => {
     try {
-      await Diamond.delete(selectedDiamond.id);
-      await refreshInventory();
+      const response = await Diamond.delete(selectedDiamond.id);
+      
+      // Close dialog and refresh inventory (no success toast)
       setShowDeleteDialog(false);
       setSelectedDiamond(null);
+      await refreshInventory();
     } catch (error) {
       console.error("Error deleting diamond:", error);
+      
+      // Show error message
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete diamond. Please try again.",
+        variant: "destructive",
+        duration: 5000,
+      });
     }
   };
 
@@ -322,6 +334,10 @@ export default function Inventory() {
                               size="sm"
                               onClick={() => handleDeleteClick(diamond)}
                               className="text-red-600 hover:text-red-800 hover:bg-red-50"
+                              disabled={(diamond.displayStatus || diamond.status) !== "In Stock"}
+                              title={(diamond.displayStatus || diamond.status) !== "In Stock" 
+                                ? `Cannot delete diamond with status "${diamond.displayStatus || diamond.status}". Only "In Stock" diamonds can be deleted.` 
+                                : "Delete diamond"}
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -351,6 +367,7 @@ export default function Inventory() {
 
       {/* Delete Confirmation Dialog */}
       <DeleteConfirmDialog
+        key={selectedDiamond?.id || 'no-diamond'}
         open={showDeleteDialog}
         onOpenChange={setShowDeleteDialog}
         onConfirm={handleDeleteConfirm}

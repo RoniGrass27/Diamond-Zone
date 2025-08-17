@@ -129,4 +129,40 @@ router.post('/approve-contract/:contractId', protect, async (req, res) => {
   }
 });
 
+// Delete a diamond (only if status is "In Stock")
+router.delete('/diamonds/:id', protect, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    // Find the diamond and check ownership
+    const diamond = await Diamond.findOne({ 
+      _id: id, 
+      ownerId: userId 
+    });
+
+    if (!diamond) {
+      return res.status(404).json({ error: 'Diamond not found or you do not own it' });
+    }
+
+    // Check if diamond can be deleted (only "In Stock" diamonds)
+    if (diamond.status !== 'In Stock') {
+      return res.status(400).json({ 
+        error: `Cannot delete diamond with status "${diamond.status}". Only diamonds with "In Stock" status can be deleted.` 
+      });
+    }
+
+    // Delete the diamond
+    await Diamond.findByIdAndDelete(id);
+
+    res.json({ 
+      success: true, 
+      message: `Diamond #${diamond.diamondNumber || id.substring(0, 3)} has been successfully deleted` 
+    });
+  } catch (error) {
+    console.error('Error deleting diamond:', error);
+    res.status(500).json({ error: 'Failed to delete diamond' });
+  }
+});
+
 module.exports = router;

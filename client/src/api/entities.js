@@ -85,7 +85,7 @@ export const Diamond = {
   },
   
   delete: async (id) => {
-    const response = await fetch(`/api/diamonds/${id}`, {
+    const response = await fetch(`/api/inventory/diamonds/${id}`, {
       method: 'DELETE',
       headers: getAuthHeaders()
     });
@@ -96,7 +96,8 @@ export const Diamond = {
         window.location.href = '/login';
         return;
       }
-      throw new Error("Failed to delete diamond");
+      const errorData = await response.json();
+      throw new Error(errorData.error || "Failed to delete diamond");
     }
     return response.json();
   },
