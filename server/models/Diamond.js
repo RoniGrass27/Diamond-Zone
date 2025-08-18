@@ -13,7 +13,7 @@ const DiamondSchema = new mongoose.Schema({
   photo: String, // URL or file path to the diamond photo
   status: {
     type: String,
-    enum: ['In Stock', 'Borrowed', 'Sold', 'Memo From'],
+    enum: ['In Stock', 'Memo From', 'Memo To', 'Sold', 'Returned'],
     default: 'In Stock'
   },
   diamondNumber: {

@@ -196,6 +196,44 @@ export default function ContractsPage() {
     
     const userEmail = currentUser.email;
     
+    // Handle completed sales with new contract types
+    if (contract.status === 'completed' && contract.saleCompleted) {
+      if (contract.type === 'Buy') {
+        if (contract.buyerEmail === userEmail) {
+          return {
+            direction: 'Buy',
+            counterparty: contract.sellerEmail,
+            counterpartyName: getUserFullName(contract.sellerEmail),
+            isInitiator: true
+          };
+        } else {
+          return {
+            direction: 'Sell',
+            counterparty: contract.buyerEmail,
+            counterpartyName: getUserFullName(contract.buyerEmail),
+            isInitiator: false
+          };
+        }
+      } else if (contract.type === 'Sell') {
+        if (contract.sellerEmail === userEmail) {
+          return {
+            direction: 'Sell',
+            counterparty: contract.buyerEmail,
+            counterpartyName: getUserFullName(contract.buyerEmail),
+            isInitiator: true
+          };
+        } else {
+          return {
+            direction: 'Buy',
+            counterparty: contract.sellerEmail,
+            counterpartyName: getUserFullName(contract.sellerEmail),
+            isInitiator: false
+          };
+        }
+      }
+    }
+    
+    // Handle existing memo contracts
     if (contract.type === 'MemoFrom') {
       if (contract.sellerEmail === userEmail) {
         return {
@@ -343,6 +381,26 @@ export default function ContractsPage() {
     viewContractDetails(contract);
   };
 
+  const getContractTypeDisplay = (contract) => {
+    // For completed sales, show the updated contract type
+    if (contract.status === 'completed' && contract.saleCompleted) {
+      if (contract.type === 'Buy') {
+        return contract.buyerEmail === currentUser.email ? 'Buy' : 'Sell';
+      } else if (contract.type === 'Sell') {
+        return contract.sellerEmail === currentUser.email ? 'Sell' : 'Buy';
+      }
+    }
+    
+    // Handle memo contracts
+    if (contract.type === 'MemoFrom') {
+      return contract.sellerEmail === currentUser.email ? 'Memo From' : 'Memo To';
+    } else if (contract.type === 'MemoTo') {
+      return contract.sellerEmail === currentUser.email ? 'Memo From' : 'Memo To';
+    }
+    
+    return contract.type;
+  };
+
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
@@ -417,7 +475,7 @@ export default function ContractsPage() {
                         <td className="py-3 px-4">
                           <div className="flex items-center gap-2">
                             <span className="text-sm text-gray-700">
-                              {contract.type}
+                              {getContractTypeDisplay(contract)}
                             </span>
                           </div>
                         </td>
@@ -536,6 +594,7 @@ export default function ContractsPage() {
         users={users}
         onApprove={handleApproveContract}
         onReject={handleRejectContract}
+        onContractUpdate={loadData} // Add this prop
       />
     </div>
   );

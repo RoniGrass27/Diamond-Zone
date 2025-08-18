@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const MessageSchema = new mongoose.Schema({
   type: {
     type: String,
-    enum: ['contract_request', 'contract_approval', 'offer_notification', 'system_notification'],
+    enum: ['contract_request', 'contract_approval', 'offer_notification', 'system_notification', 'return_request', 'return_approved'],
     required: true
   },
   fromUser: {

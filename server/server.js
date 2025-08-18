@@ -468,6 +468,11 @@ app.post('/api/contracts/:id/approve', protect, async (req, res) => {
       return res.status(403).json({ error: 'Not authorized to approve this contract' });
     }
 
+    // Clear any existing price offers when contract is approved
+    if (contract.priceOffer) {
+      contract.priceOffer = null;
+    }
+
     // Update contract status
     contract.status = 'approved';
     contract.approvedAt = new Date();
@@ -476,10 +481,41 @@ app.post('/api/contracts/:id/approve', protect, async (req, res) => {
     // Update diamond status for MemoFrom and MemoTo contracts
     if (contract.type === 'MemoFrom' || contract.type === 'MemoTo') {
       try {
+        // Update the original diamond to have "Memo From" status and link it to the contract
         await Diamond.findByIdAndUpdate(contract.diamondId, {
-          status: 'Memo From' // Seller diamond gets "Memo From" status
+          status: 'Memo From',
+          contractId: contract._id, // Link the diamond to the contract
+          memoType: 'Memo From'
         });
-        console.log('Diamond status updated to "Memo From" after contract approval');
+        console.log('Diamond status updated to "Memo From" and linked to contract after contract approval');
+        
+        // Create a copy of the diamond for the buyer with "Memo To" status
+        const originalDiamond = await Diamond.findById(contract.diamondId);
+        if (originalDiamond) {
+          // Find the buyer user to set as owner
+          const buyerUser = await User.findOne({ email: contract.buyerEmail });
+          if (!buyerUser) {
+            throw new Error('Buyer user not found');
+          }
+
+          // Get a new diamond number for the buyer's copy
+          const buyerDiamondNumber = await getNextDiamondNumber();
+
+          const buyerDiamond = new Diamond({
+            ...originalDiamond.toObject(),
+            _id: new mongoose.Types.ObjectId(), // Generate new ID for the copy
+            diamondNumber: buyerDiamondNumber, // Use new diamond number
+            ownerId: buyerUser._id, // Set buyer as owner
+            status: 'Memo To',
+            contractId: contract._id, // Link to the same contract
+            memoType: 'Memo To',
+            createdAt: new Date(),
+            updatedAt: new Date()
+          });
+          
+          await buyerDiamond.save();
+          console.log('Buyer diamond copy created with "Memo To" status and linked to contract');
+        }
       } catch (diamondUpdateError) {
         console.error('Failed to update diamond status:', diamondUpdateError);
         // Continue even if diamond update fails
@@ -753,6 +789,232 @@ app.post('/api/debug-contract-data', protect, async (req, res) => {
 
 app.use('/api/inventory', require('./routes/inventory-routes'));
 
+// Return request endpoint
+app.post('/api/contracts/:id/request-return', protect, async (req, res) => {
+  try {
+    const contract = await Contract.findById(req.params.id);
+    if (!contract) {
+      return res.status(404).json({ error: 'Contract not found' });
+    }
+
+    // Check if contract is approved and can have return requested
+    if (contract.status !== 'approved') {
+      return res.status(400).json({ error: 'Contract must be approved to request return' });
+    }
+
+    // Check if return is already requested
+    if (contract.returnRequested) {
+      return res.status(400).json({ error: 'Return already requested for this contract' });
+    }
+
+    // Ensure the current user is one of the involved parties
+    const userEmail = req.user.email;
+    const isInvolved = (contract.buyerEmail === userEmail) || (contract.sellerEmail === userEmail);
+    if (!isInvolved) {
+      return res.status(403).json({ error: 'Not authorized to request return for this contract' });
+    }
+
+    // Update contract with return request
+    contract.returnRequested = true;
+    contract.returnRequestedBy = userEmail;
+    contract.returnRequestedAt = new Date();
+    contract.returnStatus = 'pending_approval';
+    await contract.save();
+
+    // Determine who needs to approve the return
+    const approverEmail = userEmail === contract.buyerEmail ? contract.sellerEmail : contract.buyerEmail;
+    
+    // Create notification message to the approver
+    try {
+      const approver = await User.findOne({ email: approverEmail });
+      if (approver) {
+        const message = new Message({
+          type: 'return_request',
+          fromUser: req.user._id,
+          toUser: approver._id,
+          title: 'Return Request',
+          content: `A return has been requested for contract #${contract.contractNumber}. Please review and approve.`,
+          contractId: contract._id,
+          metadata: { 
+            priority: 'high',
+            contractType: contract.type,
+            returnRequester: userEmail
+          }
+        });
+        await message.save();
+        console.log('Return request message created successfully');
+      }
+    } catch (msgErr) {
+      console.error("Message creation failed (but return request was saved):", msgErr);
+    }
+
+    res.json({ 
+      success: true, 
+      contract,
+      message: 'Return request submitted successfully'
+    });
+  } catch (error) {
+    console.error("Error requesting return:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Approve return endpoint
+app.post('/api/contracts/:id/approve-return', protect, async (req, res) => {
+  try {
+    const contract = await Contract.findById(req.params.id);
+    if (!contract) {
+      return res.status(404).json({ error: 'Contract not found' });
+    }
+
+    // Check if return is requested and pending approval
+    if (!contract.returnRequested || contract.returnStatus !== 'pending_approval') {
+      return res.status(400).json({ error: 'No return request pending for this contract' });
+    }
+
+    // Ensure the current user is the approver (not the requester)
+    const userEmail = req.user.email;
+    if (contract.returnRequestedBy === userEmail) {
+      return res.status(403).json({ error: 'You cannot approve your own return request' });
+    }
+
+    // Ensure the current user is one of the involved parties
+    const isInvolved = (contract.buyerEmail === userEmail) || (contract.sellerEmail === userEmail);
+    if (!isInvolved) {
+      return res.status(403).json({ error: 'Not authorized to approve return for this contract' });
+    }
+
+    // Process the return
+    try {
+      console.log('Processing return for contract:', contract._id);
+      
+      // Find diamonds associated with this contract with multiple fallback strategies
+      let sellerDiamond = null;
+      let buyerDiamond = null;
+
+      // Strategy 1: Find by contractId (for new contracts)
+      sellerDiamond = await Diamond.findOne({ 
+        contractId: contract._id,
+        status: 'Memo From'
+      });
+      
+      buyerDiamond = await Diamond.findOne({ 
+        contractId: contract._id, 
+        status: 'Memo To' 
+      });
+
+      // Strategy 2: If not found by contractId, find by original diamondId (for existing contracts)
+      if (!sellerDiamond && contract.diamondId) {
+        sellerDiamond = await Diamond.findOne({ 
+          _id: contract.diamondId,
+          status: 'Memo From'
+        });
+        
+        // Also try to find any diamond with this ID that might not have the status updated
+        if (!sellerDiamond) {
+          sellerDiamond = await Diamond.findById(contract.diamondId);
+        }
+      }
+
+      console.log('Found seller diamond by contractId:', sellerDiamond ? sellerDiamond._id : 'Not found');
+      console.log('Found buyer diamond by contractId:', buyerDiamond ? buyerDiamond._id : 'Not found');
+
+      // Update seller's diamond back to "In Stock"
+      if (sellerDiamond) {
+        const updateResult = await Diamond.findByIdAndUpdate(sellerDiamond._id, { 
+          status: 'In Stock',
+          contractId: null,
+          memoType: null
+        }, { new: true });
+        
+        console.log('Seller diamond updated successfully:', updateResult ? updateResult._id : 'Failed');
+        
+        if (!updateResult) {
+          throw new Error('Failed to update seller diamond status');
+        }
+      } else {
+        console.log('Warning: No seller diamond found - this may be an existing contract without proper diamond linking');
+      }
+
+      if (buyerDiamond) {
+        // Delete the buyer's diamond copy
+        const deleteResult = await Diamond.findByIdAndDelete(buyerDiamond._id);
+        console.log('Buyer diamond deleted successfully:', deleteResult ? deleteResult._id : 'Failed');
+        
+        if (!deleteResult) {
+          throw new Error('Failed to delete buyer diamond');
+        }
+      } else {
+        console.log('Warning: No buyer diamond found - this may be an existing contract without proper diamond linking');
+      }
+
+      // Update contract status
+      contract.status = 'completed';
+      contract.returnStatus = 'approved';
+      contract.returnApprovedAt = new Date();
+      contract.returnApprovedBy = userEmail;
+      await contract.save();
+      
+      console.log('Contract status updated to completed');
+
+      // Create notification message to the return requester
+      try {
+        const requester = await User.findOne({ email: contract.returnRequestedBy });
+        if (requester) {
+          const message = new Message({
+            type: 'return_approved',
+            fromUser: req.user._id,
+            toUser: requester._id,
+            title: 'Return Approved',
+            content: `Your return request for contract #${contract.contractNumber} has been approved. The diamond has been returned.`,
+            contractId: contract._id,
+            metadata: { 
+              priority: 'high',
+              contractType: contract.type
+            }
+          });
+          await message.save();
+          console.log('Return approved message created successfully');
+        }
+      } catch (msgErr) {
+        console.error("Message creation failed (but return was processed):", msgErr);
+        // Continue processing even if message creation fails
+      }
+
+      res.json({ 
+        success: true, 
+        contract,
+        message: 'Return approved successfully',
+        inventoryUpdated: sellerDiamond ? true : false
+      });
+    } catch (diamondError) {
+      console.error('Error processing diamond return:', diamondError);
+      res.status(500).json({ error: 'Failed to process diamond return' });
+    }
+  } catch (error) {
+    console.error("Error approving return:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Refresh inventory endpoint - returns updated diamond data for the current user
+app.get('/api/diamonds/refresh', protect, async (req, res) => {
+  try {
+    // Get fresh diamond data for the current user
+    const diamonds = await Diamond.find({ ownerId: req.user._id }).sort({ updatedAt: -1 });
+    
+    res.json({
+      success: true,
+      diamonds,
+      timestamp: new Date().toISOString(),
+      message: 'Inventory refreshed successfully'
+    });
+  } catch (error) {
+    console.error('Error refreshing inventory:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Server running at http://localhost:${PORT}`);
   console.log('Available endpoints:');
@@ -762,4 +1024,391 @@ app.listen(PORT, () => {
   console.log('  - Contracts: /api/contracts/*');
   console.log('  - Blockchain: /api/blockchain/*');
   console.log('  - Health check: /api/health');
+});
+
+// Price offer endpoint
+app.post('/api/contracts/price-offer', protect, async (req, res) => {
+  try {
+    const { contractId, price, action, proposedBy } = req.body;
+    
+    if (!contractId || !price || !action || !proposedBy) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    const contract = await Contract.findById(contractId);
+    if (!contract) {
+      return res.status(404).json({ error: 'Contract not found' });
+    }
+
+    // Check if user is involved in the contract
+    const userEmail = req.user.email;
+    if (contract.buyerEmail !== userEmail && contract.sellerEmail !== userEmail) {
+      return res.status(403).json({ error: 'Not authorized to make price offer for this contract' });
+    }
+
+    // Check if contract is approved and can accept price offers
+    if (contract.status !== 'approved') {
+      return res.status(400).json({ error: 'Contract must be approved to make price offers' });
+    }
+
+    // Check if there's already a pending price offer
+    if (contract.priceOffer && contract.priceOffer.status === 'pending') {
+      return res.status(400).json({ error: 'A price offer is already pending for this contract' });
+    }
+
+    // Update contract with price offer
+    contract.priceOffer = {
+      price: price,
+      action: action,
+      proposedBy: proposedBy,
+      proposedAt: new Date(),
+      status: 'pending'
+    };
+
+    await contract.save();
+
+    // Create notification message to the other party
+    try {
+      const recipientEmail = proposedBy === contract.buyerEmail ? contract.sellerEmail : contract.buyerEmail;
+      const recipient = await User.findOne({ email: recipientEmail });
+      
+      if (recipient) {
+        const message = new Message({
+          type: 'offer_notification',
+          fromUser: req.user._id,
+          toUser: recipient._id,
+          title: 'Price Offer Received',
+          content: `A ${action} offer of $${price} has been made for contract #${contract.contractNumber}. Please review and respond.`,
+          contractId: contract._id,
+          metadata: { 
+            priority: 'high',
+            offerType: action,
+            offerPrice: price
+          }
+        });
+        await message.save();
+      }
+    } catch (msgErr) {
+      console.error("Message creation failed (but price offer was saved):", msgErr);
+    }
+
+    // Return the updated contract so the frontend can refresh
+    res.json({ 
+      success: true, 
+      contract: contract,
+      message: 'Price offer submitted successfully'
+    });
+  } catch (error) {
+    console.error("Error submitting price offer:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Approve sale endpoint
+app.post('/api/contracts/:id/approve-sale', protect, async (req, res) => {
+  try {
+    const contract = await Contract.findById(req.params.id);
+    if (!contract) {
+      return res.status(404).json({ error: 'Contract not found' });
+    }
+
+    // Check if there's a pending price offer
+    if (!contract.priceOffer || contract.priceOffer.status !== 'pending') {
+      return res.status(400).json({ error: 'No pending price offer found' });
+    }
+
+    // Check if user is the other party (not the one who proposed the offer)
+    const userEmail = req.user.email;
+    if (contract.priceOffer.proposedBy === userEmail) {
+      return res.status(400).json({ error: 'You cannot approve your own offer' });
+    }
+
+    // Update contract status and mark sale as completed
+    const updatedContract = await Contract.findByIdAndUpdate(
+      contract._id,
+      {
+        status: 'completed',
+        saleCompleted: true,
+        saleCompletedAt: new Date(),
+        salePrice: contract.priceOffer.price,
+        'priceOffer.status': 'approved',
+        // Update the diamondInfo in the contract to reflect the sale
+        'diamondInfo.price': contract.priceOffer.price,
+        'diamondInfo.status': contract.priceOffer.action === 'buy' ? 'Sold' : 'In Stock',
+        // Change contract type based on the action
+        type: contract.priceOffer.action === 'buy' ? 'Buy' : 'Sell'
+      },
+      { new: true }
+    );
+
+    // Find and update the actual diamond documents
+      let sellerDiamond = null;
+      let buyerDiamond = null;
+
+    // Try multiple strategies to find the diamonds
+    try {
+      // Strategy 1: Find by contractId
+      sellerDiamond = await Diamond.findOne({ 
+        contractId: contract._id,
+        status: 'Memo From'
+      });
+      
+      buyerDiamond = await Diamond.findOne({ 
+        contractId: contract._id, 
+        status: 'Memo To' 
+      });
+
+      // Strategy 2: If not found by contractId, find by original diamond ID and owner
+      if (!sellerDiamond) {
+        sellerDiamond = await Diamond.findOne({ 
+          _id: contract.diamondId || contract.diamondInfo?._id,
+          ownerId: contract.ownerId,
+          status: { $in: ['Memo From', 'In Stock'] }
+        });
+      }
+
+      if (!buyerDiamond) {
+        // Find buyer's diamond by diamond number and buyer email from contract
+        // Use the contract's buyerEmail directly since we know it exists
+        buyerDiamond = await Diamond.findOne({ 
+          diamondNumber: contract.diamondInfo?.diamondNumber,
+          ownerEmail: contract.buyerEmail, // Use buyerEmail from contract
+          status: { $in: ['Memo To', 'In Stock', 'Sold'] } // Don't filter by status since it might already be updated
+        });
+        
+        if (buyerDiamond) {
+          console.log('Found buyer diamond by primary search:', buyerDiamond._id, 'Status:', buyerDiamond.status);
+          const updateResult = await Diamond.findByIdAndUpdate(buyerDiamond._id, { 
+            status: 'In Stock',
+            contractId: null,
+            memoType: null,
+            price: contract.priceOffer.price // Update the price to selling price
+          }, { new: true });
+          
+          console.log('Buyer diamond updated to In Stock:', updateResult ? updateResult._id : 'Failed');
+        } else {
+          // Find buyer's diamond by diamond number and buyer email from contract
+          // Use the contract's buyerEmail directly since we know it exists
+          buyerDiamond = await Diamond.findOne({ 
+            diamondNumber: contract.diamondInfo?.diamondNumber,
+            ownerEmail: contract.buyerEmail
+          });
+          
+          if (buyerDiamond) {
+            console.log('Found buyer diamond by fallback search:', buyerDiamond._id, 'Status:', buyerDiamond.status);
+            const updateResult = await Diamond.findByIdAndUpdate(buyerDiamond._id, { 
+              status: 'In Stock',
+              contractId: null,
+              memoType: null,
+              price: contract.priceOffer.price // Update the price to selling price
+            }, { new: true });
+            
+            console.log('Buyer diamond updated to In Stock (fallback):', updateResult ? updateResult._id : 'Failed');
+          } else {
+            // If still not found, try to find by just the buyer email and diamond number
+            console.log('Trying final fallback search for buyer diamond...');
+            buyerDiamond = await Diamond.findOne({ 
+              diamondNumber: contract.diamondInfo?.diamondNumber,
+              ownerEmail: contract.buyerEmail
+            });
+            
+            if (buyerDiamond) {
+              console.log('Found buyer diamond by final fallback:', buyerDiamond._id, 'Status:', buyerDiamond.status);
+              const updateResult = await Diamond.findByIdAndUpdate(buyerDiamond._id, { 
+                status: 'In Stock',
+                contractId: null,
+                memoType: null,
+                price: contract.priceOffer.price
+              }, { new: true });
+              
+              console.log('Buyer diamond updated to In Stock (final fallback):', updateResult ? updateResult._id : 'Failed');
+            } else {
+              console.error('Could not find buyer diamond even with all fallback methods');
+              console.error('Contract buyerEmail:', contract.buyerEmail);
+              console.error('Contract diamondInfo:', contract.diamondInfo);
+              console.error('Contract diamondId:', contract.diamondId);
+            }
+          }
+        }
+      }
+
+      console.log('Found diamonds - Seller:', sellerDiamond?._id, 'Buyer:', buyerDiamond?._id);
+      console.log('Looking for buyer diamond with:', {
+        diamondNumber: contract.diamondInfo?.diamondNumber,
+        buyerEmail: contract.buyerEmail,
+        contractId: contract._id
+      });
+
+      // Update seller's diamond to "Sold" status
+      if (sellerDiamond) {
+        const updateResult = await Diamond.findByIdAndUpdate(sellerDiamond._id, { 
+          status: 'Sold',
+          salePrice: contract.priceOffer.price,
+          soldAt: new Date(),
+          price: contract.priceOffer.price // Update the price to selling price
+        }, { new: true });
+        
+        console.log('Seller diamond updated to Sold:', updateResult ? 'success' : 'failed');
+      }
+
+      // Update buyer's diamond to "In Stock" status (they now own it)
+      if (buyerDiamond) {
+        console.log('Found buyer diamond by primary search:', buyerDiamond._id, 'Status:', buyerDiamond.status);
+        const updateResult = await Diamond.findByIdAndUpdate(buyerDiamond._id, { 
+          status: 'In Stock',
+          contractId: null,
+          memoType: null,
+          price: contract.priceOffer.price // Update the price to selling price
+        }, { new: true });
+        
+        console.log('Buyer diamond updated to In Stock:', updateResult ? updateResult._id : 'Failed');
+      } else {
+        // Find buyer's diamond by diamond number and buyer email from contract
+        // Use the contract's buyerEmail directly since we know it exists
+        buyerDiamond = await Diamond.findOne({ 
+          diamondNumber: contract.diamondInfo?.diamondNumber,
+          ownerEmail: contract.buyerEmail
+        });
+        
+        if (buyerDiamond) {
+          console.log('Found buyer diamond by fallback search:', buyerDiamond._id, 'Status:', buyerDiamond.status);
+          const updateResult = await Diamond.findByIdAndUpdate(buyerDiamond._id, { 
+              status: 'In Stock',
+              contractId: null,
+              memoType: null,
+              price: contract.priceOffer.price // Update the price to selling price
+            }, { new: true });
+            
+          console.log('Buyer diamond updated to In Stock (fallback):', updateResult ? updateResult._id : 'Failed');
+          } else {
+          // If still not found, try to find by just the buyer email and diamond number
+          console.log('Trying final fallback search for buyer diamond...');
+          buyerDiamond = await Diamond.findOne({ 
+            diamondNumber: contract.diamondInfo?.diamondNumber,
+            ownerEmail: contract.buyerEmail
+          });
+          
+          if (buyerDiamond) {
+            console.log('Found buyer diamond by final fallback:', buyerDiamond._id, 'Status:', buyerDiamond.status);
+            const updateResult = await Diamond.findByIdAndUpdate(buyerDiamond._id, { 
+              status: 'In Stock',
+              contractId: null,
+              memoType: null,
+              price: contract.priceOffer.price
+            }, { new: true });
+            
+            console.log('Buyer diamond updated to In Stock (final fallback):', updateResult ? updateResult._id : 'Failed');
+          } else {
+            console.error('Could not find buyer diamond even with all fallback methods');
+            console.error('Contract buyerEmail:', contract.buyerEmail);
+            console.error('Contract diamondInfo:', contract.diamondInfo);
+            console.error('Contract diamondId:', contract.diamondId);
+          }
+        }
+      }
+
+    } catch (diamondError) {
+      console.error('Error updating diamonds:', diamondError);
+    }
+
+    // Send notification message to the offer proposer
+    try {
+      // First find the user IDs for the message
+      const recipientUser = await User.findOne({ email: contract.priceOffer.proposedBy });
+      const senderUser = await User.findOne({ email: userEmail });
+      
+      if (recipientUser && senderUser) {
+          const message = new Message({
+          title: `Sale Offer Approved`,
+          toUser: recipientUser._id,
+          fromUser: senderUser._id,
+          recipient: contract.priceOffer.proposedBy,
+          sender: userEmail,
+          type: 'system_notification',
+          content: `Your ${contract.priceOffer.action} offer for $${contract.priceOffer.price} has been approved! The diamond has been sold.`,
+          contractId: contract._id
+          });
+          await message.save();
+        console.log('Sale approval message sent to:', contract.priceOffer.proposedBy);
+      } else {
+        console.log('Could not find users for message creation');
+        }
+    } catch (messageError) {
+      console.error('Error sending sale approval message:', messageError);
+      }
+
+      res.json({ 
+        success: true, 
+      contract: updatedContract,
+      message: 'Sale approved successfully' 
+      });
+
+  } catch (error) {
+    console.error('Error approving sale:', error);
+    res.status(500).json({ error: 'Failed to approve sale' });
+  }
+});
+
+// Reject sale endpoint
+app.post('/api/contracts/:id/reject-sale', protect, async (req, res) => {
+  try {
+    const contract = await Contract.findById(req.params.id);
+    if (!contract) {
+      return res.status(404).json({ error: 'Contract not found' });
+    }
+
+    // Check if there's a pending price offer
+    if (!contract.priceOffer || contract.priceOffer.status !== 'pending') {
+      return res.status(400).json({ error: 'No pending price offer found' });
+    }
+
+    // Ensure the current user is the rejector (not the proposer)
+    const userEmail = req.user.email;
+    if (contract.priceOffer.proposedBy === userEmail) {
+      return res.status(403).json({ error: 'You cannot reject your own price offer' });
+    }
+
+    // Ensure the current user is one of the involved parties
+    if (contract.buyerEmail !== userEmail && contract.sellerEmail !== userEmail) {
+      return res.status(403).json({ error: 'Not authorized to reject this sale' });
+    }
+
+    // Update contract to reject the price offer
+    contract.priceOffer.status = 'rejected';
+    contract.priceOffer.rejectedAt = new Date();
+    contract.priceOffer.rejectedBy = userEmail;
+    await contract.save();
+
+    // Create notification message to the price offer proposer
+    try {
+      const proposer = await User.findOne({ email: contract.priceOffer.proposedBy });
+      if (proposer) {
+        const message = new Message({
+          type: 'offer_notification',
+          fromUser: req.user._id,
+          toUser: proposer._id,
+          title: 'Sale Offer Rejected',
+          content: `Your ${contract.priceOffer.action} offer of $${contract.priceOffer.price} for contract #${contract.contractNumber} has been rejected.`,
+          contractId: contract._id,
+          metadata: { 
+            priority: 'medium',
+            offerType: contract.priceOffer.action,
+            offerPrice: contract.priceOffer.price
+          }
+        });
+        await message.save();
+      }
+    } catch (msgErr) {
+      console.error("Message creation failed (but sale rejection was saved):", msgErr);
+    }
+
+    res.json({ 
+      success: true, 
+      contract,
+      message: 'Sale offer rejected successfully'
+    });
+  } catch (error) {
+    console.error("Error rejecting sale:", error);
+    res.status(500).json({ error: error.message });
+  }
 });

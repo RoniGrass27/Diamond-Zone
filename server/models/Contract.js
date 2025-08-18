@@ -57,7 +57,7 @@ const ContractSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['pending', 'approved', 'rejected', 'returned'],
+    enum: ['pending', 'approved', 'rejected', 'returned', 'completed'],
     default: 'pending'
   },
   contractNumber: {
@@ -97,7 +97,60 @@ const ContractSchema = new mongoose.Schema({
   updatedAt: {
     type: Date,
     default: Date.now
-  }
+  },
+  // Return request fields
+  returnRequested: {
+    type: Boolean,
+    default: false
+  },
+  returnRequestedBy: {
+    type: String, // email of the user who requested return
+    default: null
+  },
+  returnRequestedAt: {
+    type: Date,
+    default: null
+  },
+  returnStatus: {
+    type: String,
+    enum: ['pending_approval', 'approved', 'rejected'],
+    default: null
+  },
+  returnApprovedAt: {
+    type: Date,
+    default: null
+  },
+  returnApprovedBy: {
+    type: String, // email of the user who approved return
+    default: null
+  },
+  // Price offer fields for buy/sell negotiations
+  priceOffer: {
+    price: Number,
+    action: {
+      type: String,
+      enum: ['buy', 'sell']
+    },
+    proposedBy: String, // email of the user who proposed the price
+    proposedAt: Date,
+    status: {
+      type: String,
+      enum: ['pending', 'approved', 'rejected'],
+      default: 'pending'
+    },
+    approvedAt: Date,
+    approvedBy: String,
+    rejectedAt: Date,
+    rejectedBy: String
+  },
+
+  // Sale completion fields
+  saleCompleted: {
+    type: Boolean,
+    default: false
+  },
+  saleCompletedAt: Date,
+  salePrice: Number,
 });
 
 // Update the updatedAt field before saving
