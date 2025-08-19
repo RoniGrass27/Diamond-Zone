@@ -110,19 +110,22 @@ router.post('/approve-contract/:contractId', protect, async (req, res) => {
       return res.status(403).json({ error: 'You cannot approve this contract' });
     }
 
-    // Update contract status to approved
-    contract.status = 'approved';
-    contract.approvedAt = new Date();
-    await contract.save();
+    // Redirect to the main contract approval endpoint
+    // This ensures all contract approvals go through the unified logic
+    const response = await fetch(`${req.protocol}://${req.get('host')}/api/contracts/${contractId}/approve`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${req.headers.authorization}`,
+        'Content-Type': 'application/json'
+      }
+    });
 
-    // Update diamond status to "Memo From" only after approval
-    if (contract.type === 'MemoFrom' || contract.type === 'MemoTo') {
-      await Diamond.findByIdAndUpdate(contract.diamondId, {
-        status: 'Memo From'
-      });
+    if (response.ok) {
+      const result = await response.json();
+      res.json(result);
+    } else {
+      res.status(response.status).json({ error: 'Failed to approve contract' });
     }
-
-    res.json({ success: true, contract });
   } catch (error) {
     console.error('Error approving contract:', error);
     res.status(500).json({ error: 'Failed to approve contract' });
