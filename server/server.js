@@ -484,38 +484,14 @@ app.post('/api/contracts/:id/approve', protect, async (req, res) => {
         // Update the original diamond to have "Memo From" status and link it to the contract
         await Diamond.findByIdAndUpdate(contract.diamondId, {
           status: 'Memo From',
-          contractId: contract._id, // Link the diamond to the contract
+          contractId: contract._id,
           memoType: 'Memo From'
         });
         console.log('Diamond status updated to "Memo From" and linked to contract after contract approval');
         
-        // Create a copy of the diamond for the buyer with "Memo To" status
-        const originalDiamond = await Diamond.findById(contract.diamondId);
-        if (originalDiamond) {
-          // Find the buyer user to set as owner
-          const buyerUser = await User.findOne({ email: contract.buyerEmail });
-          if (!buyerUser) {
-            throw new Error('Buyer user not found');
-          }
-
-          // Get a new diamond number for the buyer's copy
-          const buyerDiamondNumber = await getNextDiamondNumber();
-
-          const buyerDiamond = new Diamond({
-            ...originalDiamond.toObject(),
-            _id: new mongoose.Types.ObjectId(), // Generate new ID for the copy
-            diamondNumber: buyerDiamondNumber, // Use new diamond number
-            ownerId: buyerUser._id, // Set buyer as owner
-            status: 'Memo To',
-            contractId: contract._id, // Link to the same contract
-            memoType: 'Memo To',
-            createdAt: new Date(),
-            updatedAt: new Date()
-          });
-          
-          await buyerDiamond.save();
-          console.log('Buyer diamond copy created with "Memo To" status and linked to contract');
-        }
+        // DO NOT create a copy - just update the contract status
+        // The buyer will see the diamond through the contract relationship
+        // This prevents diamond duplication issues
       } catch (diamondUpdateError) {
         console.error('Failed to update diamond status:', diamondUpdateError);
         // Continue even if diamond update fails
@@ -1132,20 +1108,17 @@ app.post('/api/contracts/:id/approve-sale', protect, async (req, res) => {
         saleCompletedAt: new Date(),
         salePrice: contract.priceOffer.price,
         'priceOffer.status': 'approved',
-        // Update the diamondInfo in the contract to reflect the sale
         'diamondInfo.price': contract.priceOffer.price,
         'diamondInfo.status': contract.priceOffer.action === 'buy' ? 'Sold' : 'In Stock',
-        // Change contract type based on the action
         type: contract.priceOffer.action === 'buy' ? 'Buy' : 'Sell'
       },
       { new: true }
     );
 
     // Find and update the actual diamond documents
-      let sellerDiamond = null;
-      let buyerDiamond = null;
+    let sellerDiamond = null;
+    let buyerDiamond = null;
 
-    // Try multiple strategies to find the diamonds
     try {
       // Strategy 1: Find by contractId
       sellerDiamond = await Diamond.findOne({ 
@@ -1161,37 +1134,40 @@ app.post('/api/contracts/:id/approve-sale', protect, async (req, res) => {
       // Strategy 2: If not found by contractId, find by original diamond ID and owner
       if (!sellerDiamond) {
         sellerDiamond = await Diamond.findOne({ 
-          _id: contract.diamondId || contract.diamondInfo?._id,
-          ownerId: contract.ownerId,
+          _id: contract.diamondId,
           status: { $in: ['Memo From', 'In Stock'] }
         });
       }
 
       if (!buyerDiamond) {
-        // Find buyer's diamond by diamond number and buyer email from contract
-        // Use the contract's buyerEmail directly since we know it exists
-        buyerDiamond = await Diamond.findOne({ 
-          diamondNumber: contract.diamondInfo?.diamondNumber,
-          ownerEmail: contract.buyerEmail, // Use buyerEmail from contract
-          status: { $in: ['Memo To', 'In Stock', 'Sold'] } // Don't filter by status since it might already be updated
-        });
-        
-        if (buyerDiamond) {
-          console.log('Found buyer diamond by primary search:', buyerDiamond._id, 'Status:', buyerDiamond.status);
-          const updateResult = await Diamond.findByIdAndUpdate(buyerDiamond._id, { 
-            status: 'In Stock',
-            contractId: null,
-            memoType: null,
-            price: contract.priceOffer.price // Update the price to selling price
-          }, { new: true });
-          
-          console.log('Buyer diamond updated to In Stock:', updateResult ? updateResult._id : 'Failed');
-        } else {
-          // Find buyer's diamond by diamond number and buyer email from contract
-          // Use the contract's buyerEmail directly since we know it exists
+        // Find buyer's diamond by diamond number and buyer user ID
+        // First, find the buyer user to get their ID
+        const buyerUser = await User.findOne({ email: contract.buyerEmail });
+        if (buyerUser) {
           buyerDiamond = await Diamond.findOne({ 
             diamondNumber: contract.diamondInfo?.diamondNumber,
-            ownerEmail: contract.buyerEmail
+            ownerId: buyerUser._id, // Use ownerId, not ownerEmail
+            status: { $in: ['Memo To', 'In Stock', 'Sold'] }
+          });
+          
+          if (buyerDiamond) {
+            console.log('Found buyer diamond by primary search:', buyerDiamond._id, 'Status:', buyerDiamond.status);
+            const updateResult = await Diamond.findByIdAndUpdate(buyerDiamond._id, { 
+              status: 'In Stock',
+              contractId: null,
+              memoType: null,
+              price: contract.priceOffer.price
+            }, { new: true });
+            
+            console.log('Buyer diamond updated to In Stock:', updateResult ? updateResult._id : 'Failed');
+          }
+        }
+        
+        if (!buyerDiamond && buyerUser) {
+          // Fallback: Find buyer's diamond by just diamond number and buyer user ID
+          buyerDiamond = await Diamond.findOne({ 
+            diamondNumber: contract.diamondInfo?.diamondNumber,
+            ownerId: buyerUser._id
           });
           
           if (buyerDiamond) {
@@ -1200,44 +1176,15 @@ app.post('/api/contracts/:id/approve-sale', protect, async (req, res) => {
               status: 'In Stock',
               contractId: null,
               memoType: null,
-              price: contract.priceOffer.price // Update the price to selling price
+              price: contract.priceOffer.price
             }, { new: true });
             
             console.log('Buyer diamond updated to In Stock (fallback):', updateResult ? updateResult._id : 'Failed');
-          } else {
-            // If still not found, try to find by just the buyer email and diamond number
-            console.log('Trying final fallback search for buyer diamond...');
-            buyerDiamond = await Diamond.findOne({ 
-              diamondNumber: contract.diamondInfo?.diamondNumber,
-              ownerEmail: contract.buyerEmail
-            });
-            
-            if (buyerDiamond) {
-              console.log('Found buyer diamond by final fallback:', buyerDiamond._id, 'Status:', buyerDiamond.status);
-              const updateResult = await Diamond.findByIdAndUpdate(buyerDiamond._id, { 
-                status: 'In Stock',
-                contractId: null,
-                memoType: null,
-                price: contract.priceOffer.price
-              }, { new: true });
-              
-              console.log('Buyer diamond updated to In Stock (final fallback):', updateResult ? updateResult._id : 'Failed');
-            } else {
-              console.error('Could not find buyer diamond even with all fallback methods');
-              console.error('Contract buyerEmail:', contract.buyerEmail);
-              console.error('Contract diamondInfo:', contract.diamondInfo);
-              console.error('Contract diamondId:', contract.diamondId);
-            }
           }
         }
       }
 
       console.log('Found diamonds - Seller:', sellerDiamond?._id, 'Buyer:', buyerDiamond?._id);
-      console.log('Looking for buyer diamond with:', {
-        diamondNumber: contract.diamondInfo?.diamondNumber,
-        buyerEmail: contract.buyerEmail,
-        contractId: contract._id
-      });
 
       // Update seller's diamond to "Sold" status
       if (sellerDiamond) {
@@ -1245,7 +1192,7 @@ app.post('/api/contracts/:id/approve-sale', protect, async (req, res) => {
           status: 'Sold',
           salePrice: contract.priceOffer.price,
           soldAt: new Date(),
-          price: contract.priceOffer.price // Update the price to selling price
+          price: contract.priceOffer.price
         }, { new: true });
         
         console.log('Seller diamond updated to Sold:', updateResult ? 'success' : 'failed');
@@ -1253,57 +1200,23 @@ app.post('/api/contracts/:id/approve-sale', protect, async (req, res) => {
 
       // Update buyer's diamond to "In Stock" status (they now own it)
       if (buyerDiamond) {
-        console.log('Found buyer diamond by primary search:', buyerDiamond._id, 'Status:', buyerDiamond.status);
         const updateResult = await Diamond.findByIdAndUpdate(buyerDiamond._id, { 
           status: 'In Stock',
           contractId: null,
           memoType: null,
-          price: contract.priceOffer.price // Update the price to selling price
+          price: contract.priceOffer.price
         }, { new: true });
         
         console.log('Buyer diamond updated to In Stock:', updateResult ? updateResult._id : 'Failed');
       } else {
-        // Find buyer's diamond by diamond number and buyer email from contract
-        // Use the contract's buyerEmail directly since we know it exists
-        buyerDiamond = await Diamond.findOne({ 
-          diamondNumber: contract.diamondInfo?.diamondNumber,
-          ownerEmail: contract.buyerEmail
-        });
-        
-        if (buyerDiamond) {
-          console.log('Found buyer diamond by fallback search:', buyerDiamond._id, 'Status:', buyerDiamond.status);
-          const updateResult = await Diamond.findByIdAndUpdate(buyerDiamond._id, { 
-              status: 'In Stock',
-              contractId: null,
-              memoType: null,
-              price: contract.priceOffer.price // Update the price to selling price
-            }, { new: true });
-            
-          console.log('Buyer diamond updated to In Stock (fallback):', updateResult ? updateResult._id : 'Failed');
-          } else {
-          // If still not found, try to find by just the buyer email and diamond number
-          console.log('Trying final fallback search for buyer diamond...');
-          buyerDiamond = await Diamond.findOne({ 
-            diamondNumber: contract.diamondInfo?.diamondNumber,
-            ownerEmail: contract.buyerEmail
-          });
-          
-          if (buyerDiamond) {
-            console.log('Found buyer diamond by final fallback:', buyerDiamond._id, 'Status:', buyerDiamond.status);
-            const updateResult = await Diamond.findByIdAndUpdate(buyerDiamond._id, { 
-              status: 'In Stock',
-              contractId: null,
-              memoType: null,
-              price: contract.priceOffer.price
-            }, { new: true });
-            
-            console.log('Buyer diamond updated to In Stock (final fallback):', updateResult ? updateResult._id : 'Failed');
-          } else {
-            console.error('Could not find buyer diamond even with all fallback methods');
-            console.error('Contract buyerEmail:', contract.buyerEmail);
-            console.error('Contract diamondInfo:', contract.diamondInfo);
-            console.error('Contract diamondId:', contract.diamondId);
-          }
+        console.error('Could not find buyer diamond even with all fallback methods');
+        console.error('Contract buyerEmail:', contract.buyerEmail);
+        console.error('Contract diamondInfo:', contract.diamondInfo);
+        console.error('Contract diamondId:', contract.diamondId);
+        if (buyerUser) {
+          console.error('Buyer user found:', buyerUser._id);
+        } else {
+          console.error('Buyer user not found for email:', contract.buyerEmail);
         }
       }
 
@@ -1318,7 +1231,7 @@ app.post('/api/contracts/:id/approve-sale', protect, async (req, res) => {
       const senderUser = await User.findOne({ email: userEmail });
       
       if (recipientUser && senderUser) {
-          const message = new Message({
+        const message = new Message({
           title: `Sale Offer Approved`,
           toUser: recipientUser._id,
           fromUser: senderUser._id,
@@ -1327,21 +1240,21 @@ app.post('/api/contracts/:id/approve-sale', protect, async (req, res) => {
           type: 'system_notification',
           content: `Your ${contract.priceOffer.action} offer for $${contract.priceOffer.price} has been approved! The diamond has been sold.`,
           contractId: contract._id
-          });
-          await message.save();
+        });
+        await message.save();
         console.log('Sale approval message sent to:', contract.priceOffer.proposedBy);
       } else {
         console.log('Could not find users for message creation');
-        }
+      }
     } catch (messageError) {
       console.error('Error sending sale approval message:', messageError);
-      }
+    }
 
-      res.json({ 
-        success: true, 
+    res.json({ 
+      success: true, 
       contract: updatedContract,
       message: 'Sale approved successfully' 
-      });
+    });
 
   } catch (error) {
     console.error('Error approving sale:', error);

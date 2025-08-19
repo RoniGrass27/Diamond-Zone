@@ -72,22 +72,12 @@ export default function PlaceBidForm({ diamond, businessName, open, onOpenChange
       return;
     }
 
-    if (diamond.status !== "In Stock") {
-      alert('This diamond is not available for bidding.');
-      return;
-    }
-
-    // Debug: Log the diamond object to see its structure
-    console.log('Diamond object for contract creation:', diamond);
-    console.log('Diamond ID:', diamond.id);
-    console.log('Diamond _id:', diamond._id);
-    console.log('Diamond status:', diamond.status);
     console.log('Diamond ownerId:', diamond.ownerId);
 
     try {
       setLoading(true);
       
-      // Create the contract
+      // Create the contract ONLY - let the server handle all diamond status updates
       const contractData = {
         diamondId: diamond.id || diamond._id,
         sellerId: diamond.ownerId?._id || diamond.ownerId,
@@ -103,68 +93,15 @@ export default function PlaceBidForm({ diamond, businessName, open, onOpenChange
       
       const contract = await Contract.create(contractData);
       console.log('Contract created:', contract);
-      console.log('Contract response structure:', Object.keys(contract));
       
-      // Update the seller's diamond status to "Memo From" and add contract info
-      console.log('Updating seller diamond status to Memo From...');
-      const diamondId = diamond.id || diamond._id;
+      // DO NOT create diamonds here - let the server handle it during approval
+      // This prevents inconsistencies and duplication
       
-      try {
-        const updateResult = await Diamond.update(diamondId, { 
-          status: 'Memo From', // Seller diamond gets "Memo From" status
-          contractId: contract.id || contract._id,
-          memoType: 'Memo From'
-        });
-        console.log('Seller diamond updated successfully:', updateResult);
-        console.log('Update response structure:', Object.keys(updateResult));
-        console.log('Updated diamond status:', updateResult.status);
-      } catch (updateError) {
-        console.error('Failed to update seller diamond status:', updateError);
-        // Continue with the process even if status update fails
-      }
-      
-      // Create a copy of the diamond for the buyer with "Memo To" status
-      const buyerDiamondData = {
-        diamondNumber: diamond.diamondNumber,
-        carat: diamond.carat,
-        shape: diamond.shape,
-        color: diamond.color,
-        clarity: diamond.clarity,
-        cut: diamond.cut,
-        polish: diamond.polish,
-        symmetry: diamond.symmetry,
-        uv: diamond.uv,
-        price: diamond.price,
-        photo: diamond.photo,
-        status: 'Memo To', // Buyer diamond gets "Memo To" status
-        ownerId: formData.buyerEmail,
-        contractId: contract.id || contract._id,
-        originalDiamondId: diamond.id,
-        memoType: 'Memo To'
-      };
-      
-      console.log('Creating buyer diamond with data:', buyerDiamondData);
-      
-      try {
-        const buyerDiamond = await Diamond.create(buyerDiamondData);
-        console.log('Buyer diamond created successfully:', buyerDiamond);
-        console.log('Buyer diamond response structure:', Object.keys(buyerDiamond));
-        console.log('Buyer diamond status:', buyerDiamond.status);
-      } catch (createError) {
-        console.error('Failed to create buyer diamond:', createError);
-        // Continue with the process even if buyer diamond creation fails
-      }
-      
-      // Verify the status was updated
       console.log('Contract creation completed successfully!');
       console.log('Contract ID:', contract.id || contract._id);
-      console.log('Seller diamond should now have status: Memo From');
-      console.log('Buyer diamond should now exist with status: Memo To');
+      console.log('Diamonds will be created/updated when the contract is approved');
       
-      // Add a small delay to ensure backend processing is complete
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      alert('Contract created successfully! The diamond status has been updated.');
+      alert('Contract created successfully! Please wait for seller approval.');
       onSuccess();
       
     } catch (error) {
