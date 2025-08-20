@@ -15,8 +15,14 @@ router.get('/my-inventory', protect, async (req, res) => {
     const userId = req.user.id;
     const userEmail = req.user.email;
 
-    // Get diamonds the user owns directly
+    // Get diamonds the user owns directly (including sold ones)
     const ownedDiamonds = await Diamond.find({ ownerId: userId });
+
+    // Get diamonds that were previously owned by this user but are now sold
+    const previouslyOwnedSoldDiamonds = await Diamond.find({ 
+      previousOwnerId: userId,
+      status: 'In Stock' // These are now owned by buyer but were previously owned by seller
+    });
 
     // Get APPROVED memo contracts where user is the buyer (to show diamonds they can access)
     const buyerContracts = await Contract.find({
@@ -60,6 +66,16 @@ router.get('/my-inventory', protect, async (req, res) => {
           ...diamond.toObject(),
           accessType: 'owned',
           displayStatus: displayStatus,
+          id: diamond._id || diamond.id
+        };
+      }),
+      
+      // Previously owned sold diamonds - show as "Sold" in seller's inventory
+      ...previouslyOwnedSoldDiamonds.map(diamond => {
+        return {
+          ...diamond.toObject(),
+          accessType: 'previously_owned',
+          displayStatus: 'Sold',
           id: diamond._id || diamond.id
         };
       }),

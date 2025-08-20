@@ -26,6 +26,10 @@ const DiamondSchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
+  previousOwnerId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
   memoType: String, // 'Memo From' for seller's diamond
   createdAt: {
     type: Date,
