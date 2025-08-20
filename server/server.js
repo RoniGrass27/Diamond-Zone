@@ -1118,8 +1118,15 @@ app.post('/api/contracts/:id/approve-sale', protect, async (req, res) => {
     // Find and update the actual diamond documents
     let sellerDiamond = null;
     let buyerDiamond = null;
+    let buyerUser = null;
 
     try {
+      // First, find the buyer user to get their ID
+      buyerUser = await User.findOne({ email: contract.buyerEmail });
+      if (!buyerUser) {
+        throw new Error('Buyer user not found');
+      }
+
       // Strategy 1: Find by contractId
       sellerDiamond = await Diamond.findOne({ 
         contractId: contract._id,
@@ -1141,65 +1148,45 @@ app.post('/api/contracts/:id/approve-sale', protect, async (req, res) => {
 
       if (!buyerDiamond) {
         // Find buyer's diamond by diamond number and buyer user ID
-        // First, find the buyer user to get their ID
-        const buyerUser = await User.findOne({ email: contract.buyerEmail });
-        if (buyerUser) {
-          buyerDiamond = await Diamond.findOne({ 
-            diamondNumber: contract.diamondInfo?.diamondNumber,
-            ownerId: buyerUser._id, // Use ownerId, not ownerEmail
-            status: { $in: ['Memo To', 'In Stock', 'Sold'] }
-          });
-          
-          if (buyerDiamond) {
-            console.log('Found buyer diamond by primary search:', buyerDiamond._id, 'Status:', buyerDiamond.status);
-            const updateResult = await Diamond.findByIdAndUpdate(buyerDiamond._id, { 
-              status: 'In Stock',
-              contractId: null,
-              memoType: null,
-              price: contract.priceOffer.price
-            }, { new: true });
-            
-            console.log('Buyer diamond updated to In Stock:', updateResult ? updateResult._id : 'Failed');
-          }
-        }
+        buyerDiamond = await Diamond.findOne({ 
+          diamondNumber: contract.diamondInfo?.diamondNumber,
+          ownerId: buyerUser._id,
+          status: { $in: ['Memo To', 'In Stock', 'Sold'] }
+        });
         
-        if (!buyerDiamond && buyerUser) {
+        if (!buyerDiamond) {
           // Fallback: Find buyer's diamond by just diamond number and buyer user ID
           buyerDiamond = await Diamond.findOne({ 
             diamondNumber: contract.diamondInfo?.diamondNumber,
             ownerId: buyerUser._id
           });
-          
-          if (buyerDiamond) {
-            console.log('Found buyer diamond by fallback search:', buyerDiamond._id, 'Status:', buyerDiamond.status);
-            const updateResult = await Diamond.findByIdAndUpdate(buyerDiamond._id, { 
-              status: 'In Stock',
-              contractId: null,
-              memoType: null,
-              price: contract.priceOffer.price
-            }, { new: true });
-            
-            console.log('Buyer diamond updated to In Stock (fallback):', updateResult ? updateResult._id : 'Failed');
-          }
         }
       }
 
       console.log('Found diamonds - Seller:', sellerDiamond?._id, 'Buyer:', buyerDiamond?._id);
 
-      // Update seller's diamond to "Sold" status
+      // CRITICAL FIX: Transfer ownership of the diamond from seller to buyer
       if (sellerDiamond) {
+        // Update seller's diamond to "Sold" status and transfer ownership to buyer
         const updateResult = await Diamond.findByIdAndUpdate(sellerDiamond._id, { 
-          status: 'Sold',
+          status: 'In Stock', // CHANGE STATUS TO "In Stock" for the new owner (buyer)
+          ownerId: buyerUser._id, // TRANSFER OWNERSHIP to buyer
           salePrice: contract.priceOffer.price,
           soldAt: new Date(),
-          price: contract.priceOffer.price
+          price: contract.priceOffer.price,
+          contractId: null, // Remove contract link
+          memoType: null, // Remove memo type
+          previousOwnerId: sellerDiamond.ownerId // Store previous owner for inventory display
         }, { new: true });
         
-        console.log('Seller diamond updated to Sold:', updateResult ? 'success' : 'failed');
+        console.log('Seller diamond updated to In Stock and ownership transferred to buyer:', updateResult ? 'success' : 'failed');
+        
+        // The diamond is now owned by the buyer with "In Stock" status
+        // It will show as "In Stock" in buyer's inventory and "Sold" in seller's inventory
       }
 
-      // Update buyer's diamond to "In Stock" status (they now own it)
-      if (buyerDiamond) {
+      // Update buyer's diamond to "In Stock" status (if it exists as a separate copy)
+      if (buyerDiamond && buyerDiamond._id.toString() !== sellerDiamond._id.toString()) {
         const updateResult = await Diamond.findByIdAndUpdate(buyerDiamond._id, { 
           status: 'In Stock',
           contractId: null,
@@ -1207,21 +1194,17 @@ app.post('/api/contracts/:id/approve-sale', protect, async (req, res) => {
           price: contract.priceOffer.price
         }, { new: true });
         
-        console.log('Buyer diamond updated to In Stock:', updateResult ? updateResult._id : 'Failed');
-      } else {
-        console.error('Could not find buyer diamond even with all fallback methods');
-        console.error('Contract buyerEmail:', contract.buyerEmail);
-        console.error('Contract diamondInfo:', contract.diamondInfo);
-        console.error('Contract diamondId:', contract.diamondId);
-        if (buyerUser) {
-          console.error('Buyer user found:', buyerUser._id);
-        } else {
-          console.error('Buyer user not found for email:', contract.buyerEmail);
-        }
+        console.log('Buyer diamond copy updated to In Stock:', updateResult ? updateResult._id : 'Failed');
+      }
+
+      // If no separate buyer diamond exists, the transferred seller diamond will serve as the buyer's diamond
+      if (!buyerDiamond) {
+        console.log('No separate buyer diamond found - using transferred seller diamond as buyer diamond');
       }
 
     } catch (diamondError) {
       console.error('Error updating diamonds:', diamondError);
+      throw diamondError; // Re-throw to prevent contract completion if diamond update fails
     }
 
     // Send notification message to the offer proposer
