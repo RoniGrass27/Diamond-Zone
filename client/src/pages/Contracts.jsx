@@ -15,6 +15,8 @@ import {
 import ContractForm from "../components/contracts/ContractForm";
 import QRCodeDialog from "../components/contracts/QRCodeDialog";
 import ContractDetailDialog from "../components/contracts/ContractDetailDialog";
+// Add Web3 import
+import initWeb3 from "@/lib/web3";
 
 export default function ContractsPage() {
   const [contracts, setContracts] = useState([]);
@@ -137,6 +139,37 @@ export default function ContractsPage() {
 
   const handleApproveContract = async (contractId) => {
     try {
+      // First, trigger MetaMask transaction
+      const { web3, contracts: web3Contracts } = await initWeb3();
+      
+      // Get the contract from your local state
+      const contract = contracts.find(c => c._id === contractId);
+      if (!contract) {
+        throw new Error('Contract not found');
+      }
+
+      // Call the smart contract to approve the contract
+      const accounts = await web3.eth.getAccounts();
+      const userAccount = accounts[0];
+
+      // Convert contractId to a number or use contract number
+      const contractNumber = contract.contractNumber || 0;
+      
+      // Create a hash of the contract data
+      const contractHash = web3.utils.keccak256(JSON.stringify(contract));
+      
+      // This will trigger MetaMask to open
+      const result = await web3Contracts.diamondLending.methods.approveContract(
+        contractNumber, // Use the numeric contract number
+        contractHash    // Hash of contract data
+      ).send({
+        from: userAccount,
+        gas: 3000000
+      });
+
+      console.log('Blockchain transaction successful:', result);
+
+      // Then update the backend
       const token = localStorage.getItem('token');
       const response = await fetch(`/api/contracts/${contractId}/approve`, {
         method: 'POST',
@@ -149,9 +182,15 @@ export default function ContractsPage() {
       if (response.ok) {
         await loadData();
         setShowDetailDialog(false);
+        toast.success('Contract approved successfully!');
       }
     } catch (error) {
       console.error('Error approving contract:', error);
+      if (error.code === 4001) {
+        toast.error('MetaMask: Transaction was rejected by user');
+      } else {
+        toast.error('Failed to approve contract. Please try again.');
+      }
     }
   };
 
