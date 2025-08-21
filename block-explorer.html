@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quorum Block Explorer</title>
+    <script src="https://cdn.jsdelivr.net/npm/web3@1.10.0/dist/web3.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .header { text-align: center; color: #333; margin-bottom: 30px; }
+        .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px; }
+        .stat-card { background: #f8f9fa; padding: 20px; border-radius: 8px; text-align: center; border-left: 4px solid #007bff; }
+        .stat-value { font-size: 24px; font-weight: bold; color: #007bff; }
+        .stat-label { color: #666; margin-top: 5px; }
+        .transactions { margin-top: 30px; }
+        .transaction { background: #f8f9fa; padding: 15px; margin: 10px 0; border-radius: 5px; border-left: 4px solid #28a745; }
+        .refresh-btn { background: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-size: 16px; }
+        .refresh-btn:hover { background: #0056b3; }
+        .error { color: #dc3545; background: #f8d7da; padding: 10px; border-radius: 5px; margin: 10px 0; }
+        .success { color: #155724; background: #d4edda; padding: 10px; border-radius: 5px; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔍 Quorum Block Explorer</h1>
+            <p>Network: Localhost:22000 | Network ID: 10</p>
+        </div>
+        
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-value" id="blockNumber">-</div>
+                <div class="stat-label">Latest Block</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="networkId">-</div>
+                <div class="stat-label">Network ID</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="gasPrice">-</div>
+                <div class="stat-label">Gas Price</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="accountCount">-</div>
+                <div class="stat-label">Accounts</div>
+            </div>
+        </div>
+        
+        <button class="refresh-btn" onclick="refreshData()">🔄 Refresh Data</button>
+        
+        <div class="transactions">
+            <h2>Recent Transactions</h2>
+            <div id="transactionsList">Loading...</div>
+        </div>
+    </div>
+
+    <script>
+        let web3;
+        
+        async function initWeb3() {
+            try {
+                web3 = new Web3(new Web3.providers.HttpProvider('http://localhost:22000'));
+                const isListening = await web3.eth.net.isListening();
+                if (isListening) {
+                    showSuccess('Successfully connected to Quorum!');
+                    await refreshData();
+                } else {
+                    showError('Connected but Quorum is not listening');
+                }
+            } catch (error) {
+                showError('Failed to connect to Quorum: ' + error.message);
+                console.error('Connection error:', error);
+            }
+        }
+        
+        async function refreshData() {
+            try {
+                if (!web3) {
+                    showError('Web3 not initialized');
+                    return;
+                }
+                
+                // Get network info
+                const networkId = await web3.eth.net.getId();
+                document.getElementById('networkId').textContent = networkId;
+                
+                // Get latest block
+                const blockNumber = await web3.eth.getBlockNumber();
+                document.getElementById('blockNumber').textContent = blockNumber;
+                
+                // Get gas price
+                const gasPrice = await web3.eth.getGasPrice();
+                document.getElementById('gasPrice').textContent = web3.utils.fromWei(gasPrice, 'gwei') + ' gwei';
+                
+                // Get accounts
+                const accounts = await web3.eth.getAccounts();
+                document.getElementById('accountCount').textContent = accounts.length;
+                
+                // Get recent transactions
+                await loadRecentTransactions(blockNumber);
+                
+            } catch (error) {
+                showError('Error refreshing data: ' + error.message);
+                console.error('Refresh error:', error);
+            }
+        }
+        
+        async function loadRecentTransactions(latestBlock) {
+            try {
+                const transactionsList = document.getElementById('transactionsList');
+                transactionsList.innerHTML = 'Loading transactions...';
+                
+                let allTransactions = [];
+                
+                // Get transactions from last 3 blocks only (to avoid overwhelming)
+                for (let i = 0; i < 3 && latestBlock - i >= 0; i++) {
+                    try {
+                        const block = await web3.eth.getBlock(latestBlock - i, true);
+                        if (block && block.transactions && block.transactions.length > 0) {
+                            allTransactions = allTransactions.concat(block.transactions);
+                        }
+                    } catch (blockError) {
+                        console.log(`Could not load block ${latestBlock - i}:`, blockError.message);
+                        continue;
+                    }
+                }
+                
+                if (allTransactions.length === 0) {
+                    transactionsList.innerHTML = '<p>No transactions found in recent blocks.</p>';
+                    return;
+                }
+                
+                // Display transactions with simplified data
+                let html = '';
+                allTransactions.forEach((tx, index) => {
+                    try {
+                        html += `
+                            <div class="transaction">
+                                <strong>Transaction ${index + 1}</strong><br>
+                                Hash: ${tx.hash}<br>
+                                From: ${tx.from}<br>
+                                To: ${tx.to || 'Contract Creation'}<br>
+                                Value: ${web3.utils.fromWei(tx.value, 'ether')} ETH<br>
+                                Block: ${tx.blockNumber}
+                            </div>
+                        `;
+                    } catch (txError) {
+                        console.error('Error processing transaction:', txError);
+                        html += `
+                            <div class="transaction" style="border-left-color: #dc3545;">
+                                <strong>Transaction ${index + 1}</strong><br>
+                                <em>Error processing transaction data</em><br>
+                                Hash: ${tx.hash || 'Unknown'}
+                            </div>
+                        `;
+                    }
+                });
+                
+                transactionsList.innerHTML = html;
+                
+            } catch (error) {
+                showError('Error loading transactions: ' + error.message);
+                console.error('Transaction loading error:', error);
+            }
+        }
+        
+        function showError(message) {
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error';
+            errorDiv.textContent = message;
+            document.querySelector('.container').appendChild(errorDiv);
+            
+            setTimeout(() => {
+                errorDiv.remove();
+            }, 10000);
+        }
+        
+        function showSuccess(message) {
+            const successDiv = document.createElement('div');
+            successDiv.className = 'success';
+            successDiv.textContent = message;
+            document.querySelector('.container').appendChild(successDiv);
+            
+            setTimeout(() => {
+                successDiv.remove();
+            }, 5000);
+        }
+        
+        // Auto-refresh every 15 seconds
+        setInterval(refreshData, 15000);
+        
+        // Initialize when page loads
+        window.onload = initWeb3;
+    </script>
+</body>
+</html>
