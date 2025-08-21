@@ -76,7 +76,7 @@ export default function PriceNegotiationDialog({
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="price">Price (USD)</Label>
+            <Label htmlFor="price">Price Per Carat (USD)</Label>
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
               <Input

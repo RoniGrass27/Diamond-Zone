@@ -70,7 +70,7 @@ export default function DiamondModal({ diamond, businessName, open, onOpenChange
             <div className="bg-green-50 p-4 rounded-lg border border-green-200">
               <div className="flex items-center gap-2 mb-2">
                 <DollarSign className="h-5 w-5 text-green-600" />
-                <span className="font-medium text-green-800">Price</span>
+                <span className="font-medium text-green-800">Price Per Carat</span>
               </div>
               <div className="text-3xl font-bold text-green-600">
                 ${diamond.price?.toLocaleString() || "N/A"}
