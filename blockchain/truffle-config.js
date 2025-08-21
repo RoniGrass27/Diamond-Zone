@@ -1,13 +1,14 @@
 module.exports = {
   networks: {
     development: {
-      host: "127.0.0.1",     // Localhost (default: none)
-      port: 7545,            // Standard Ethereum port (default: none)
-      network_id: "*",       // Any network (default: none)
-      from: "0x116A325d04c00D69595e4c8D066B118fB1a44531",
+      host: "127.0.0.1",     // Localhost
+      port: 7545,            // Ganache default port
+      network_id: "*",       // Match any network id
       gas: 6721975,          // Gas limit
-      gasPrice: 20000000000, // 20 gwei (in wei)
-    },
+      gasPrice: 20000000000, // 20 gwei (Ganache default)
+      skipDryRun: true,      // Skip dry run for faster deployment
+      confirmations: 0       // No confirmations needed for local network
+    }
   },
 
   mocha: {
