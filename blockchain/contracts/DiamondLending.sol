@@ -77,6 +77,7 @@ contract DiamondLending {
     event OfferAccepted(uint256 indexed offerId, uint256 indexed loanId);
     event DiamondSold(uint256 indexed loanId, uint256 indexed offerId, address buyer, uint256 amount);
     event DiamondReturned(uint256 indexed loanId);
+    event ContractApproved(uint256 indexed contractId, address indexed approver, bytes32 indexed contractHash);
     
     // Modifiers
     modifier onlyDiamondOwner(uint256 tokenId) {
@@ -193,6 +194,12 @@ contract DiamondLending {
         loan.approvedAt = block.timestamp;
         
         emit LoanApproved(_loanId, loan.lender);
+    }
+
+    function approveContract(uint256 contractId, bytes32 contractHash) public {
+        // Add your approval logic here
+        // This will trigger MetaMask when called
+        emit ContractApproved(contractId, msg.sender, contractHash);
     }
     
     // Cancel loan request

@@ -19,6 +19,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, Wallet, Link, AlertCircle, CheckCircle } from "lucide-react";
 import { toast } from "react-toastify";
 import { Diamond } from "@/api/entities";
+import initWeb3, { contracts } from "@/lib/web3";
 
 
 //for testing purposes
@@ -104,7 +105,9 @@ export default function ContractForm({ onSubmit, onCancel, diamonds }) {
   const autoConnectWallet = async () => {
   if (window.ethereum) {
     try {
-      const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+      // Initialize Web3 and ensure we're on the correct network
+      const { accounts } = await initWeb3();
+      
       if (accounts.length > 0) {
         setWalletInfo({
           address: accounts[0],
@@ -113,10 +116,14 @@ export default function ContractForm({ onSubmit, onCancel, diamonds }) {
         console.log("MetaMask auto-connected:", accounts[0]);
       }
     } catch (err) {
-      console.warn("MetaMask connection skipped or rejected.");
+      console.warn("MetaMask connection failed:", err);
+      // Show user-friendly error message
+      if (err.message.includes("Ganache network")) {
+        alert("Please connect MetaMask to Ganache network (localhost:7545)");
+      }
     }
-   }
-  };
+  }
+};
 
   const createWallet = async () => {
   try {

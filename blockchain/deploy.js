@@ -156,6 +156,25 @@ class ContractDeployer {
         JSON.stringify(diamondLending.abi, null, 2)
       );
 
+      // After deployment, copy addresses to frontend
+      const updateFrontendAddresses = () => {
+        const diamondNFT = artifacts.require("DiamondNFT");
+        const diamondLending = artifacts.require("DiamondLending");
+        
+        const addresses = {
+          diamondNFT: diamondNFT.address,
+          diamondLending: diamondLending.address
+        };
+        
+        // Write to a JSON file that frontend can read
+        fs.writeFileSync(
+          path.join(__dirname, '../client/src/contract-addresses.json'),
+          JSON.stringify(addresses, null, 2)
+        );
+        
+        console.log('Contract addresses updated:', addresses);
+      };
+
       console.log('\n' + '='.repeat(50));
       console.log('Deployment completed successfully!');
       console.log('='.repeat(50));
@@ -175,6 +194,28 @@ class ContractDeployer {
       
     } catch (error) {
       console.error('Deployment failed:', error);
+      throw error;
+    }
+  }
+
+  // NEW: Add this method to update frontend addresses
+  async updateFrontendAddresses(diamondNFTAddress, diamondLendingAddress) {
+    try {
+      const addresses = {
+        diamondNFT: diamondNFTAddress,
+        diamondLending: diamondLendingAddress
+      };
+      
+      // Create the file path
+      const filePath = path.join(__dirname, '../client/src/lib/contract-addresses.json');
+      
+      // Write the addresses to the JSON file
+      fs.writeFileSync(filePath, JSON.stringify(addresses, null, 2));
+      
+      console.log('✅ Contract addresses updated in frontend:', addresses);
+      console.log('✅ File created at:', filePath);
+    } catch (error) {
+      console.error('❌ Failed to update frontend addresses:', error);
       throw error;
     }
   }
