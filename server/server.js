@@ -1054,7 +1054,7 @@ app.post('/api/contracts/price-offer', protect, async (req, res) => {
           fromUser: req.user._id,
           toUser: recipient._id,
           title: 'Price Offer Received',
-          content: `A ${action} offer of $${price} has been made for contract #${contract.contractNumber}. Please review and respond.`,
+          content: `A ${action} offer of $${price} for diamond #${String(contract.diamondInfo.diamondNumber).padStart(3, '0')} and contract #${contract.contractNumber} has been made. Please review and respond.`,
           contractId: contract._id,
           metadata: { 
             priority: 'high',
@@ -1284,7 +1284,7 @@ app.post('/api/contracts/:id/reject-sale', protect, async (req, res) => {
           fromUser: req.user._id,
           toUser: proposer._id,
           title: 'Sale Offer Rejected',
-          content: `Your ${contract.priceOffer.action} offer of $${contract.priceOffer.price} for contract #${contract.contractNumber} has been rejected.`,
+          content: `Your ${contract.priceOffer.action} offer of $${contract.priceOffer.price} for diamond #${String(contract.diamondInfo.diamondNumber).padStart(3, '0')} and contract #${contract.contractNumber} has been rejected.`,
           contractId: contract._id,
           metadata: { 
             priority: 'medium',

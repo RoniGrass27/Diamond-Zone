@@ -769,107 +769,112 @@ export default function ContractDetailDialog({
             </div>
           )}
 
-                          {/* Return Diamond Button for MemoFrom and MemoTo Contracts */}
-          {(localContract.type === 'MemoFrom' || localContract.type === 'MemoTo') && localContract.status === 'approved' && !localContract.priceOffer && (
-            <div className="flex gap-3 pt-4 border-t">
-              {/* Return Diamond Button - shown to both buyer and seller */}
-              {canRequestReturn() && (
-              <Button
-                  onClick={() => handleReturnDiamond(localContract)}
-                className="bg-blue-600 hover:bg-blue-700 text-white flex-1"
-              >
-                <DiamondIcon className="h-4 w-4 mr-2" />
-                  Request Return
-                </Button>
-              )}
+          {/* Return Diamond Button for MemoFrom and MemoTo Contracts */}
+          {(localContract.type === 'MemoFrom' || localContract.type === 'MemoTo') && 
+ localContract.status === 'approved' && 
+ (!localContract.priceOffer || localContract.priceOffer.status !== 'pending') && (
+  <div className="flex gap-3 pt-4 border-t">
+    {/* Return Diamond Button - shown to both buyer and seller */}
+    {canRequestReturn() && (
+      <Button
+        onClick={() => handleReturnDiamond(localContract)}
+        className="bg-blue-600 hover:bg-blue-700 text-white flex-1"
+      >
+        <DiamondIcon className="h-4 w-4 mr-2" />
+        Request Return
+      </Button>
+    )}
 
-              {/* Approve Return Button - shown to the other party */}
-              {canApproveReturn() && (
-                <Button
-                  onClick={() => handleApproveReturn(localContract)}
-                  className="bg-orange-600 hover:bg-orange-700 text-white flex-1"
-                >
-                  <CheckCircle className="h-4 w-4 mr-2" />
-                  Approve Return
-                </Button>
-              )}
+    {/* Approve Return Button - shown to the other party */}
+    {canApproveReturn() && (
+      <Button
+        onClick={() => handleApproveReturn(localContract)}
+        className="bg-orange-600 hover:bg-orange-700 text-white flex-1"
+      >
+        <CheckCircle className="h-4 w-4 mr-2" />
+        Approve Return
+      </Button>
+    )}
 
-              {/* Return Status Display */}
-              {localContract.returnRequested && localContract.returnStatus === 'pending_approval' && (
-                <div className="flex-1 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                  <p className="text-sm text-yellow-800 text-center">
-                    ⏳ Return request pending approval from {getUserFullName(localContract.returnRequestedBy === localContract.buyerEmail ? localContract.sellerEmail : localContract.buyerEmail)}
-                  </p>
-                </div>
-              )}
+    {/* Return Status Display */}
+    {localContract.returnRequested && localContract.returnStatus === 'pending_approval' && (
+      <div className="flex-1 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+        <p className="text-sm text-yellow-800 text-center">
+          ⏳ Return request pending approval from {getUserFullName(localContract.returnRequestedBy === localContract.buyerEmail ? localContract.sellerEmail : localContract.buyerEmail)}
+        </p>
+      </div>
+    )}
 
-              {/* Sell Diamond Button for Seller */}
-              {isCurrentUserSeller() && !localContract.returnRequested && (
-                <Button
-                  onClick={() => handleSellDiamond(localContract)}
-                  className="bg-green-600 hover:bg-green-700 text-white flex-1"
-                >
-                  <DollarSign className="h-4 w-4 mr-2" />
-                  Sell Diamond
-                </Button>
-              )}
-              
-              {/* Buy Diamond Button for Buyer */}
-              {isCurrentUserBuyer() && !localContract.returnRequested && (
-                <Button
-                  onClick={() => handleBuyDiamond(localContract)}
-                  className="bg-purple-600 hover:bg-purple-700 text-white flex-1"
-                >
-                  <DollarSign className="h-4 w-4 mr-2" />
-                  Buy Diamond
-                </Button>
-              )}
-            </div>
-          )}
+    {/* Sell Diamond Button for Seller */}
+    {isCurrentUserSeller() && !localContract.returnRequested && (
+      <Button
+        onClick={() => handleSellDiamond(localContract)}
+        className="bg-green-600 hover:bg-green-700 text-white flex-1"
+      >
+        <DollarSign className="h-4 w-4 mr-2" />
+        Sell Diamond
+      </Button>
+    )}
+    
+    {/* Buy Diamond Button for Buyer */}
+    {isCurrentUserBuyer() && !localContract.returnRequested && (
+      <Button
+        onClick={() => handleBuyDiamond(localContract)}
+        className="bg-purple-600 hover:bg-purple-700 text-white flex-1"
+      >
+        <DollarSign className="h-4 w-4 mr-2" />
+        Buy Diamond
+      </Button>
+    )}
+  </div>
+)}
 
           {/* Price Offer Display */}
-          {localContract.priceOffer && localContract.priceOffer.status === 'pending' && (
-            <div className="pt-4 border-t">
-              {localContract.priceOffer.proposedBy === currentUser.email ? (
-                // Show "offer sent" message for the proposer
-                <div className="text-center py-4">
-                  <div className="text-lg font-semibold text-blue-600 mb-2">
-                    Price offer was sent...
-                  </div>
-                  <div className="text-sm text-gray-600">
-                    You offered to {localContract.priceOffer.action} for ${localContract.priceOffer.price}
-                  </div>
-                </div>
-              ) : (
-                // Show offer details and approve/reject buttons for the other party
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <div className="text-center mb-4">
-                    <div className="text-lg font-semibold text-blue-800 mb-2">
-                      Price Offer Received
-                    </div>
-                    <div className="text-sm text-gray-700">
-                      {localContract.priceOffer.proposedBy === localContract.buyerEmail ? 'Buyer' : 'Seller'} wants to {localContract.priceOffer.action} for ${localContract.priceOffer.price}
-                    </div>
-                  </div>
-                  <div className="flex gap-3">
-                    <Button
-                      onClick={() => handleApproveSale(localContract)}
-                      className="flex-1 bg-green-600 hover:bg-green-700"
-                    >
-                      Approve
-                    </Button>
-                    <Button
-                      onClick={() => handleRejectSale(localContract)}
-                      variant="outline"
-                      className="flex-1"
-                    >
-                      Reject
-              </Button>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
+          {localContract.priceOffer && 
+ localContract.priceOffer.status === 'pending' && 
+ localContract.priceOffer.price && 
+ localContract.priceOffer.price > 0 && (
+  <div className="pt-4 border-t">
+    {localContract.priceOffer.proposedBy === currentUser.email ? (
+      // Show "offer sent" message for the proposer
+      <div className="text-center py-4">
+        <div className="text-lg font-semibold text-blue-600 mb-2">
+          Price offer was sent...
+        </div>
+        <div className="text-sm text-gray-600">
+          You offered to {localContract.priceOffer.action} for ${localContract.priceOffer.price} per carat
+        </div>
+      </div>
+    ) : (
+      // Show offer details and approve/reject buttons for the other party
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <div className="text-center mb-4">
+          <div className="text-lg font-semibold text-blue-800 mb-2">
+            Price Offer Received
+          </div>
+          <div className="text-sm text-gray-700">
+            {localContract.priceOffer.proposedBy === localContract.buyerEmail ? 'Buyer' : 'Seller'} wants to {localContract.priceOffer.action} for ${localContract.priceOffer.price} per carat
+          </div>
+        </div>
+        <div className="flex gap-3">
+          <Button
+            onClick={() => handleApproveSale(localContract)}
+            className="flex-1 bg-green-600 hover:bg-green-700"
+          >
+            Approve
+          </Button>
+          <Button
+            onClick={() => handleRejectSale(localContract)}
+            variant="outline"
+            className="flex-1"
+          >
+            Reject
+          </Button>
+        </div>
+      </div>
+    )}
+  </div>
+)}
 
           {/* Completed Sale Status */}
           {localContract.status === 'completed' && localContract.saleCompleted && (
@@ -879,7 +884,7 @@ export default function ContractDetailDialog({
                   Diamond sold!
                 </div>
                 <div className="text-lg text-green-600 mb-2">
-                  Sale Price: ${localContract.salePrice || localContract.priceOffer?.price}
+                  Sale Price Per Carat: ${localContract.salePrice || localContract.priceOffer?.price}
                 </div>
                 <div className="text-base text-green-600 mb-2">
                   Sold to: {getUserFullName(localContract.buyerEmail)}

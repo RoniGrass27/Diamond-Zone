@@ -304,6 +304,9 @@ export default function ContractForm({ onSubmit, onCancel, diamonds }) {
                 <SelectContent>
                   {diamonds
                     .filter(diamond => {
+                      if (diamond.displayStatus === "Sold") {
+                        return false;
+                      }
                       // For MemoFrom contracts, only show diamonds that are "In Stock"
                       if (formData.type === 'MemoFrom') {
                         return diamond.status === "In Stock";
@@ -363,7 +366,7 @@ export default function ContractForm({ onSubmit, onCancel, diamonds }) {
             {/* Price for Buy/Sell */}
             {(formData.type === 'Buy' || formData.type === 'Sell') && (
               <div>
-                <Label htmlFor="price">Price (USD)</Label>
+                <Label htmlFor="price">Price Per Carat (USD)</Label>
                 <Input
                   id="price"
                   type="number"
@@ -372,7 +375,7 @@ export default function ContractForm({ onSubmit, onCancel, diamonds }) {
                   step="0.01"
                   value={formData.price || ''}
                   onChange={(e) => handleChange('price', e.target.value)}
-                  placeholder="Enter price"
+                  placeholder="Enter price per carat"
                 />
               </div>
             )}

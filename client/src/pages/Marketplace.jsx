@@ -178,7 +178,7 @@ export default function Marketplace() {
                 <p className="mt-1 text-gray-500">No diamonds match your current filters.</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                 {filteredAndSortedDiamonds.map((diamond) => (
                   <Card 
                     key={diamond.id} 
@@ -198,20 +198,20 @@ export default function Marketplace() {
                         />
                       ) : (
                         <div className="w-full h-full bg-gray-100 flex items-center justify-center">
-                          <DiamondIcon className="h-16 w-16 text-gray-400" />
+                          <DiamondIcon className="h-12 w-12 text-gray-400" />
                         </div>
                       )}
                       {diamond.photo && (
                         <div className="w-full h-full bg-gray-100 flex items-center justify-center" style={{display: 'none'}}>
-                          <DiamondIcon className="h-16 w-16 text-gray-400" />
+                          <DiamondIcon className="h-12 w-12 text-gray-400" />
                         </div>
                       )}
                     </div>
                     
-                    <CardContent className="p-4">
+                    <CardContent className="p-3">
                       <div className="space-y-2">
                         <div className="flex items-center justify-between">
-                          <h3 className="font-semibold text-lg">
+                          <h3 className="font-semibold text-base">
                             Diamond {diamond.diamondNumber || diamond.id?.substring(0, 3)}
                           </h3>
                           <Badge 
@@ -230,11 +230,11 @@ export default function Marketplace() {
                           </Badge>
                         </div>
                         
-                        <p className="text-sm text-gray-600">
+                        <p className="text-xs text-gray-600">
                           {getBusinessName(diamond.ownerId)}
                         </p>
                         
-                        <div className="grid grid-cols-2 gap-2 text-sm">
+                        <div className="grid grid-cols-2 gap-1 text-xs">
                           <div>
                             <span className="font-medium">Carat:</span>
                             <span className="ml-1">{diamond.carat || "-"}</span>
@@ -254,7 +254,7 @@ export default function Marketplace() {
                         </div>
                         
                         <div className="flex items-center justify-between pt-2">
-                          <div className="text-lg font-bold text-green-600">
+                          <div className="text-base font-bold text-green-600">
                             ${diamond.price?.toLocaleString() || "-"}
                           </div>
                           <Button
@@ -264,7 +264,7 @@ export default function Marketplace() {
                               handlePlaceBid(diamond);
                             }}
                             disabled={diamond.status !== "In Stock"}
-                            className={`${
+                            className={`text-xs ${
                               diamond.status === "In Stock" 
                                 ? "bg-sky-500 hover:bg-sky-600" 
                                 : "bg-gray-300 cursor-not-allowed"

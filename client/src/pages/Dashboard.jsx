@@ -499,33 +499,7 @@ export default function Dashboard() {
                       </div>
                     </div>
 
-                    {message.isActionRequired && message.actionType === 'approve_contract' && !message.isRead && message.contractId && getContractStatus(message) === 'pending' && (
-                      <div className="flex gap-2 mt-3 pt-3 border-t">
-                        <Button
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleApproveContract(message._id, message.contractId._id || message.contractId);
-                          }}
-                          className="bg-green-600 hover:bg-green-700 text-white"
-                        >
-                          <CheckCircle className="h-4 w-4 mr-1" />
-                          Approve
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleRejectContract(message._id, message.contractId._id || message.contractId);
-                          }}
-                          className="border-red-300 text-red-600 hover:bg-red-50"
-                        >
-                          <X className="h-4 w-4 mr-1" />
-                          Reject
-                        </Button>
-                      </div>
-                    )}
+                    {/* Removed the approve/reject buttons section */}
                   </div>
                 ))
               )}
@@ -558,7 +532,9 @@ export default function Dashboard() {
                         <p className="font-medium">{diamond.diamondNumber 
                                   ? `#${String(diamond.diamondNumber).padStart(3, '0')}` 
                                   : `${(diamond._id || diamond.id).substring(0, 3)}`}</p>
-                        <p className="text-sm text-gray-500">{diamond.carat} ct • {diamond.clarity}</p>
+                        <p className="text-sm font-medium text-gray-700">
+                          {diamond.carat} ct • {diamond.shape || '-'} • {diamond.color || '-'} • {diamond.clarity || '-'}
+                        </p>
                       </div>
                     </div>
                     <Badge variant="outline">{diamond.status}</Badge>
@@ -657,25 +633,7 @@ export default function Dashboard() {
                 </div>
               )}
 
-              {selectedMessage.isActionRequired && selectedMessage.actionType === 'approve_contract' && selectedMessage.contractId && getContractStatus(selectedMessage) === 'pending' && (
-                <div className="flex gap-3 pt-4 border-t">
-                  <Button
-                    onClick={() => handleApproveContract(selectedMessage._id, selectedMessage.contractId._id || selectedMessage.contractId)}
-                    className="bg-green-600 hover:bg-green-700 text-white flex-1"
-                  >
-                    <CheckCircle className="h-4 w-4 mr-2" />
-                    Approve Contract
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => handleRejectContract(selectedMessage._id, selectedMessage.contractId._id || selectedMessage.contractId)}
-                    className="border-red-300 text-red-600 hover:bg-red-50 flex-1"
-                  >
-                    <X className="h-4 w-4 mr-2" />
-                    Reject Contract
-                  </Button>
-                </div>
-              )}
+              {/* Removed the approve/reject buttons section */}
             </div>
           )}
         </DialogContent>
