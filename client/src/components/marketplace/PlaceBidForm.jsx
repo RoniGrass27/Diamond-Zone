@@ -77,7 +77,7 @@ export default function PlaceBidForm({ diamond, businessName, open, onOpenChange
     try {
       setLoading(true);
       
-      // Create the contract ONLY - let the server handle all diamond status updates
+      // Create the contract 
       const contractData = {
         diamondId: diamond.id || diamond._id,
         sellerId: diamond.ownerId?._id || diamond.ownerId,
@@ -93,10 +93,6 @@ export default function PlaceBidForm({ diamond, businessName, open, onOpenChange
       
       const contract = await Contract.create(contractData);
       console.log('Contract created:', contract);
-      
-      // DO NOT create diamonds here - let the server handle it during approval
-      // This prevents inconsistencies and duplication
-      
       console.log('Contract creation completed successfully!');
       console.log('Contract ID:', contract.id || contract._id);
       console.log('Diamonds will be created/updated when the contract is approved');

@@ -299,9 +299,6 @@ router.post('/enable-blockchain', protect, async (req, res) => {
 // Logout (client-side mainly, but can be used for logging)
 router.post('/logout', protect, async (req, res) => {
   try {
-    // In a more complex setup, you might want to blacklist the token
-    // For now, we'll just return success and let client handle token removal
-    
     res.json({
       success: true,
       message: 'Logged out successfully'

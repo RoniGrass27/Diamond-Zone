@@ -10,7 +10,7 @@ async function testMessageSystem() {
     await mongoose.connect(process.env.MONGODB_URI);
     console.log('Connected to MongoDB');
 
-    // Test 1: Check if users exist
+    // Check if users exist
     console.log('\n=== Testing Users ===');
     const users = await User.find({}).select('email fullName');
     console.log('Users in database:', users);
@@ -20,7 +20,7 @@ async function testMessageSystem() {
       return;
     }
 
-    // Test 2: Create a test message
+    // Create a test message
     console.log('\n=== Creating Test Message ===');
     const fromUser = users[0];
     const toUser = users[1];
@@ -42,7 +42,7 @@ async function testMessageSystem() {
     await testMessage.save();
     console.log('Test message created:', testMessage._id);
 
-    // Test 3: Check messages for each user
+    // Check messages for each user
     console.log('\n=== Checking Messages for Each User ===');
     
     for (const user of users) {
@@ -56,7 +56,7 @@ async function testMessageSystem() {
       });
     }
 
-    // Test 4: Check contracts
+    // Check contracts
     console.log('\n=== Checking Contracts ===');
     const contracts = await Contract.find({})
       .populate('ownerId', 'email')

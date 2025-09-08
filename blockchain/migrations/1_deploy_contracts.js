@@ -12,16 +12,16 @@ module.exports = async function(deployer, network, accounts) {
     // Step 1: Deploy DiamondNFT with deployer as initial owner
     await deployer.deploy(DiamondNFT, deployerAccount);
     const diamondNFT = await DiamondNFT.deployed();
-    console.log('✅ DiamondNFT deployed at:', diamondNFT.address);
+    console.log('DiamondNFT deployed at:', diamondNFT.address);
     
     // Step 2: Deploy DiamondLending with DiamondNFT address
     await deployer.deploy(DiamondLending, diamondNFT.address);
     const diamondLending = await DiamondLending.deployed();
-    console.log('✅ DiamondLending deployed at:', diamondLending.address);
+    console.log('DiamondLending deployed at:', diamondLending.address);
     
     // Step 3: Set the DiamondLending contract address in DiamondNFT
     await diamondNFT.setDiamondLendingContract(diamondLending.address);
-    console.log('✅ DiamondNFT linked to DiamondLending');
+    console.log('DiamondNFT linked to DiamondLending');
     
     // Step 4: Update frontend addresses
     const addresses = {
@@ -41,12 +41,12 @@ module.exports = async function(deployer, network, accounts) {
     // Write the addresses to the JSON file
     fs.writeFileSync(filePath, JSON.stringify(addresses, null, 2));
     
-    console.log('✅ Contract addresses updated in frontend:', addresses);
-    console.log('✅ File created at:', filePath);
-    console.log('🎉 Deployment completed successfully!');
+    console.log('Contract addresses updated in frontend:', addresses);
+    console.log('File created at:', filePath);
+    console.log('Deployment completed successfully!');
     
   } catch (error) {
-    console.error('❌ Migration failed:', error);
+    console.error('Migration failed:', error);
     throw error;
   }
 };

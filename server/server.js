@@ -52,7 +52,7 @@ app.get('/api/users/all', protect, async (req, res) => {
 // Blockchain routes (protected)
 app.use('/api/blockchain', protect, blockchainRoutes);
 
-// Legacy endpoint for backward compatibility (now protected)
+// Legacy endpoint for backward compatibility 
 app.get('/api/me', protect, async (req, res) => {
   try {
     const user = await User.findById(req.user._id).select('-password');
@@ -237,9 +237,6 @@ app.get('/api/contracts', protect, async (req, res) => {
   }
 });
 
-// server/server.js - Complete Contract POST route replacement
-// Replace the entire app.post('/api/contracts', protect, async (req, res) => { ... }) block with this:
-
 app.post('/api/contracts', protect, async (req, res) => {
   try {
     console.log('=== Creating Contract ===');
@@ -264,8 +261,6 @@ app.post('/api/contracts', protect, async (req, res) => {
       return res.status(400).json({ error: 'Diamond not found' });
     }
 
-    // For MemoTo contracts (marketplace bidding), buyer doesn't need to own the diamond
-    // For other contract types, user must own the diamond
     if (req.body.type !== 'MemoTo') {
       if (diamond.ownerId.toString() !== req.user._id.toString()) {
         console.log('Diamond not owned by user');
@@ -312,8 +307,8 @@ app.post('/api/contracts', protect, async (req, res) => {
 
     console.log('Emails validated:', { buyerEmail, sellerEmail });
 
-    // Build contract data with proper date handling
-    const now = new Date(); // This creates a proper Date object with current date and time
+    // Build contract data with date handling
+    const now = new Date(); // This creates a Date object with current date and time
     
     // Handle expiration date properly
     let expirationDate;
@@ -352,7 +347,7 @@ app.post('/api/contracts', protect, async (req, res) => {
       sellerEmail: sellerEmail,
       contractNumber: contractNumber,
       status: 'pending',
-      createdDate: now, // Use proper Date object with current time
+      createdDate: now, // Use Date object with current time
       expirationDate: expirationDate,
       blockchain_enabled: req.body.blockchain_enabled || false,
       wallet_address: req.body.wallet_address || null
@@ -488,10 +483,7 @@ app.post('/api/contracts/:id/approve', protect, async (req, res) => {
           memoType: 'Memo From'
         });
         console.log('Diamond status updated to "Memo From" and linked to contract after contract approval');
-        
-        // DO NOT create a copy - just update the contract status
-        // The buyer will see the diamond through the contract relationship
-        // This prevents diamond duplication issues
+     
       } catch (diamondUpdateError) {
         console.error('Failed to update diamond status:', diamondUpdateError);
         // Continue even if diamond update fails
@@ -868,7 +860,7 @@ app.post('/api/contracts/:id/approve-return', protect, async (req, res) => {
       let sellerDiamond = null;
       let buyerDiamond = null;
 
-      // Strategy 1: Find by contractId (for new contracts)
+      // Find by contractId (for new contracts)
       sellerDiamond = await Diamond.findOne({ 
         contractId: contract._id,
         status: 'Memo From'
@@ -879,14 +871,14 @@ app.post('/api/contracts/:id/approve-return', protect, async (req, res) => {
         status: 'Memo To' 
       });
 
-      // Strategy 2: If not found by contractId, find by original diamondId (for existing contracts)
+      // If not found by contractId, find by original diamondId (for existing contracts)
       if (!sellerDiamond && contract.diamondId) {
         sellerDiamond = await Diamond.findOne({ 
           _id: contract.diamondId,
           status: 'Memo From'
         });
         
-        // Also try to find any diamond with this ID that might not have the status updated
+        // Try to find any diamond with this ID that might not have the status updated
         if (!sellerDiamond) {
           sellerDiamond = await Diamond.findById(contract.diamondId);
         }
@@ -1121,13 +1113,13 @@ app.post('/api/contracts/:id/approve-sale', protect, async (req, res) => {
     let buyerUser = null;
 
     try {
-      // First, find the buyer user to get their ID
+      // Find the buyer user to get their ID
       buyerUser = await User.findOne({ email: contract.buyerEmail });
       if (!buyerUser) {
         throw new Error('Buyer user not found');
       }
 
-      // Strategy 1: Find by contractId
+      // Find by contractId
       sellerDiamond = await Diamond.findOne({ 
         contractId: contract._id,
         status: 'Memo From'
@@ -1138,7 +1130,7 @@ app.post('/api/contracts/:id/approve-sale', protect, async (req, res) => {
         status: 'Memo To' 
       });
 
-      // Strategy 2: If not found by contractId, find by original diamond ID and owner
+      // If not found by contractId, find by original diamond ID and owner
       if (!sellerDiamond) {
         sellerDiamond = await Diamond.findOne({ 
           _id: contract.diamondId,
@@ -1165,7 +1157,6 @@ app.post('/api/contracts/:id/approve-sale', protect, async (req, res) => {
 
       console.log('Found diamonds - Seller:', sellerDiamond?._id, 'Buyer:', buyerDiamond?._id);
 
-      // CRITICAL FIX: Transfer ownership of the diamond from seller to buyer
       if (sellerDiamond) {
         // Update seller's diamond to "Sold" status and transfer ownership to buyer
         const updateResult = await Diamond.findByIdAndUpdate(sellerDiamond._id, { 
@@ -1209,7 +1200,7 @@ app.post('/api/contracts/:id/approve-sale', protect, async (req, res) => {
 
     // Send notification message to the offer proposer
     try {
-      // First find the user IDs for the message
+      // Find the user IDs for the message
       const recipientUser = await User.findOne({ email: contract.priceOffer.proposedBy });
       const senderUser = await User.findOne({ email: userEmail });
       

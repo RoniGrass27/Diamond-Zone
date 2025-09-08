@@ -95,7 +95,6 @@ if (window.ethereum) {
 export default initWeb3;
 export { contracts, GANACHE_NETWORK };
 
-// Add this function for debugging
 export const testConnection = async () => {
   try {
     const { web3, accounts, contracts } = await initWeb3();

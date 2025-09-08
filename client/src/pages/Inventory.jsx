@@ -39,7 +39,7 @@ export default function Inventory() {
     const fetchInventory = async () => {
       try {
         setLoading(true);
-        const inventory = await InventoryAPI.getMyInventory(); // Use InventoryAPI instead
+        const inventory = await InventoryAPI.getMyInventory(); 
         setDiamonds(inventory);
       } catch (error) {
         console.error('Failed to fetch inventory:', error);
@@ -54,7 +54,7 @@ export default function Inventory() {
   const refreshInventory = async () => {
     try {
       setLoading(true);
-      const inventory = await InventoryAPI.getMyInventory(); // Use InventoryAPI instead
+      const inventory = await InventoryAPI.getMyInventory(); 
       setDiamonds(inventory);
     } catch (error) {
       console.error('Failed to refresh inventory:', error);
