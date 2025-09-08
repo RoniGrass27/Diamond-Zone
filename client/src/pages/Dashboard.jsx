@@ -30,10 +30,9 @@ import { format } from "date-fns";
 import { 
   formatCompactDate, 
   formatDetailedDate,
-  formatContractDateTime // Add this import
+  formatContractDateTime 
 } from "@/utils/dateUtils";
 
-// Import the QR Code Dialog component
 import QRCodeDialog from "@/components/contracts/QRCodeDialog";
 
 export default function Dashboard() {

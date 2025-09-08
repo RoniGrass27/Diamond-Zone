@@ -9,13 +9,12 @@ import { format } from "date-fns";
 import { toast } from "react-toastify";
 import { 
   formatContractDate, 
-  formatContractDateTime, // Added this import
+  formatContractDateTime, 
   isExpiringSoon 
 } from "@/utils/dateUtils";
 import ContractForm from "../components/contracts/ContractForm";
 import QRCodeDialog from "../components/contracts/QRCodeDialog";
 import ContractDetailDialog from "../components/contracts/ContractDetailDialog";
-// Add Web3 import
 import initWeb3 from "@/lib/web3";
 
 export default function ContractsPage() {
@@ -139,7 +138,7 @@ export default function ContractsPage() {
 
   const handleApproveContract = async (contractId) => {
     try {
-      // First, trigger MetaMask transaction
+      // Trigger MetaMask transaction
       const { web3, contracts: web3Contracts } = await initWeb3();
       
       // Get the contract from your local state
@@ -169,7 +168,7 @@ export default function ContractsPage() {
 
       console.log('Blockchain transaction successful:', result);
 
-      // Then update the backend
+      // Update the backend
       const token = localStorage.getItem('token');
       const response = await fetch(`/api/contracts/${contractId}/approve`, {
         method: 'POST',
@@ -295,14 +294,14 @@ export default function ContractsPage() {
           direction: 'Memo From', // Seller sees "Memo From"
           counterparty: contract.buyerEmail,
           counterpartyName: getUserFullName(contract.buyerEmail),
-          isInitiator: false  // Seller is NOT the initiator for MemoTo
+          isInitiator: false  // Seller is not the initiator for MemoTo
         };
       } else {
         return {
           direction: 'Memo To', // Buyer sees "Memo To"
           counterparty: contract.sellerEmail,
           counterpartyName: getUserFullName(contract.sellerEmail),
-          isInitiator: true  // Buyer IS the initiator for MemoTo
+          isInitiator: true  // Buyer is the initiator for MemoTo
         };
       }
     } else if (contract.type === 'Buy') {
@@ -633,7 +632,7 @@ export default function ContractsPage() {
         users={users}
         onApprove={handleApproveContract}
         onReject={handleRejectContract}
-        onContractUpdate={loadData} // Add this prop
+        onContractUpdate={loadData} 
       />
     </div>
   );

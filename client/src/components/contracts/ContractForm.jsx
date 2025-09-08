@@ -22,30 +22,11 @@ import { Diamond } from "@/api/entities";
 import initWeb3, { contracts } from "@/lib/web3";
 
 
-//for testing purposes
-// const connectWallet = async () => {
-//   if (window.ethereum) {
-//     try {
-//       const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
-//       console.log("MetaMask connected:", accounts[0]);
-//       alert("MetaMask connected: " + accounts[0]);
-//     } catch (err) {
-//       console.error("MetaMask connection error:", err);
-//     }
-//   } else {
-//     alert("MetaMask is not installed.");
-//   }
-// };
-
-// Import BlockchainService (we'll need to create this)
-// For now, we'll create a simple mock
 const BlockchainService = {
   getWallet: async (userId) => {
-    // Mock implementation - replace with real service later
     return null;
   },
   createWallet: async (userId) => {
-    // Mock implementation - replace with real service later
     return { success: true, wallet: { address: '0x1234...', createdAt: new Date() } };
   },
   formatAddress: (address) => {
@@ -57,7 +38,6 @@ const BlockchainService = {
 export default function ContractForm({ onSubmit, onCancel, diamonds }) {
   const [emailError, setEmailError] = useState('');
   const [loading, setLoading] = useState(false);
-  //const [useBlockchain, setUseBlockchain] = useState(false);
   const [walletInfo, setWalletInfo] = useState(null);
   const [walletLoading, setWalletLoading] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
@@ -168,11 +148,6 @@ export default function ContractForm({ onSubmit, onCancel, diamonds }) {
     }
   };
 
-  // const handleBlockchainToggle = (enabled) => {
-  //   setUseBlockchain(enabled);
-  //   setFormData(prev => ({ ...prev, blockchain_enabled: enabled }));
-  // };
-
   function isValidEmail(email) {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
   }
@@ -209,7 +184,6 @@ export default function ContractForm({ onSubmit, onCancel, diamonds }) {
           return;
         }
 
-        // DON'T update the diamond status here - wait for contract approval
         // The status will remain "In Stock" until the contract is approved
         console.log('Diamond status will remain "In Stock" until contract approval');
       }

@@ -89,9 +89,9 @@ router.get('/my-inventory', protect, async (req, res) => {
         return {
           ...diamond.toObject(),
           accessType: 'contract',
-          displayStatus: 'Memo To', // Always "Memo To" for buyers (same as displayInfo.direction)
+          displayStatus: 'Memo To', // Always "Memo To" for buyers 
           contractId: contract._id,
-          contractType: contract.type, // This will be "MemoFrom" or "MemoTo"
+          contractType: contract.type, // "MemoFrom" or "MemoTo"
           contractNumber: contract.contractNumber,
           duration: contract.duration,
           terms: contract.terms,
@@ -127,7 +127,6 @@ router.post('/approve-contract/:contractId', protect, async (req, res) => {
     }
 
     // Redirect to the main contract approval endpoint
-    // This ensures all contract approvals go through the unified logic
     const response = await fetch(`${req.protocol}://${req.get('host')}/api/contracts/${contractId}/approve`, {
       method: 'POST',
       headers: {

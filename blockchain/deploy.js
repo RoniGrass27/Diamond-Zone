@@ -100,7 +100,6 @@ class ContractDeployer {
 
       // Deploy DiamondNFT first
       const diamondNFT = await this.deployContract('DiamondNFT', [this.deployer]);
-      //return;
 
       // Deploy DiamondLending with NFT address
       const diamondLending = await this.deployContract('DiamondLending', [diamondNFT.address]);
@@ -198,7 +197,7 @@ class ContractDeployer {
     }
   }
 
-  // NEW: Add this method to update frontend addresses
+  // Add this method to update frontend addresses
   async updateFrontendAddresses(diamondNFTAddress, diamondLendingAddress) {
     try {
       const addresses = {
@@ -212,10 +211,10 @@ class ContractDeployer {
       // Write the addresses to the JSON file
       fs.writeFileSync(filePath, JSON.stringify(addresses, null, 2));
       
-      console.log('✅ Contract addresses updated in frontend:', addresses);
-      console.log('✅ File created at:', filePath);
+      console.log('Contract addresses updated in frontend:', addresses);
+      console.log('File created at:', filePath);
     } catch (error) {
-      console.error('❌ Failed to update frontend addresses:', error);
+      console.error('Failed to update frontend addresses:', error);
       throw error;
     }
   }

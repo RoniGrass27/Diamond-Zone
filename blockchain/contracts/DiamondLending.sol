@@ -66,7 +66,7 @@ contract DiamondLending {
     mapping(uint256 => SaleOffer) public offers;
     mapping(address => uint256[]) public userLoans;
     mapping(address => uint256[]) public userOffers;
-    mapping(uint256 => uint256[]) public loanOffers; // loanId => offerIds[]
+    mapping(uint256 => uint256[]) public loanOffers; 
     
     // Events
     event DiamondAdded(uint256 indexed tokenId, address indexed owner, string certificateNumber);
@@ -197,8 +197,6 @@ contract DiamondLending {
     }
 
     function approveContract(uint256 contractId, bytes32 contractHash) public {
-        // Add your approval logic here
-        // This will trigger MetaMask when called
         emit ContractApproved(contractId, msg.sender, contractHash);
     }
     
@@ -346,18 +344,4 @@ contract DiamondLending {
     function isDiamondAvailable(uint256 _tokenId) external view returns (bool) {
         return diamonds[_tokenId].isAvailable;
     }
-
-    // struct LoanRequest {
-    // uint256 diamondTokenId;
-    // address borrower;
-    // uint256 loanDuration;
-    // string terms;
-    // bytes32 qrCodeHash;
-    // }
-
-    // LoanRequest[] public loanRequests;
-
-    // function getLoanRequest(uint256 index) public view returns (LoanRequest memory) {
-    //     return loanRequests[index];
-    // }
 }

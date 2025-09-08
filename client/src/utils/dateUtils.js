@@ -22,12 +22,9 @@ function parseDate(dateValue) {
       // Remove any non-date characters but keep important date/time chars
       cleanDateString = cleanDateString.replace(/[^0-9a-zA-Z\s,:-T.Z+]/g, '');
       
-      // Try different parsing methods
       if (cleanDateString.includes('T') || cleanDateString.match(/\d{4}-\d{2}-\d{2}/)) {
-        // Looks like ISO format
         date = parseISO(cleanDateString);
       } else {
-        // Try regular Date constructor
         date = new Date(cleanDateString);
       }
     } else {

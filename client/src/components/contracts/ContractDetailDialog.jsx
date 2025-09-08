@@ -378,7 +378,7 @@ export default function ContractDetailDialog({
           direction: 'Memo From', // Seller sees "Memo From"
           counterparty: localContract.buyerEmail,
           counterpartyName: getUserFullName(localContract.buyerEmail),
-          isInitiator: false  // Seller is NOT the initiator for MemoTo
+          isInitiator: false  // Seller is not the initiator for MemoTo
         };
       } else {
         return {
